@@ -11,9 +11,6 @@
 
   [new-account/2
    (-> procedure? string? (list/c account? (-> void?)))]
-
-  [new-account
-   (->* (string?) (#:first-check# natural?) action/c)]
   [deposit
    ;; consumes command-line arguments to deposit amount 
    (->* (account? my-date?) () #:rest (listof string?) action/c)]
@@ -99,11 +96,6 @@
       (exit-for-testing 1))
     (with-output-to-file file-name (λ () (account-writer (current-output-port) a))))
   (list a effect))
-
-#; {String String -> Void}
-;; EFFECT create a new account file 
-(define (new-account name #:first-check# (last 0))
-  (account name '() 0 (today) '() last))
 
 ;                                                                                                    
 ;              ;      ;                                     ;                                        

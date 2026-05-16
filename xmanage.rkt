@@ -17,7 +17,6 @@ exec racket -tm "$0" -- ${1+"$@"}
   (require rackunit))
 
 ;; TODO:
-;; -- move file i/o parts of all actions into "actions.rkt"
 ;; -- `-new` should be able to consume the first check number 
 
 ;                                     
