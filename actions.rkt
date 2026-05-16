@@ -2,7 +2,10 @@
 
 ;; the actions that can be performed on an account
 
-(define action/c (list/c any/c procedure?))
+;; TODO
+;; -- test effects
+
+(define (action/c x/c) (list/c x/c (-> any)))
 
 (provide
  (contract-out
@@ -13,17 +16,17 @@
    (-> procedure? string? (list/c account? (-> void?)))]
   [deposit
    ;; consumes command-line arguments to deposit amount 
-   (->* (account? my-date?) () #:rest (listof string?) action/c)]
+   (->* (account? my-date?) () #:rest (listof string?) (action/c account?))]
   [withdraw
    ;; consumes commad-line arguments to withdraw amount
-   (->* (account? my-date?) () #:rest (listof string?) action/c)]
+   (->* (account? my-date?) () #:rest (listof string?) (action/c account?))]
   [write-check
    ;; consumes commad-line arguments to record a check at amount
-   (->* (account? my-date? string? string?) () action/c)]
+   (->* (account? my-date? string? string?) () (action/c account?))]
   [show-balance
-   (->* (account? my-date?) () #:rest any/c action/c)]
+   (->* (account? my-date?) () #:rest any/c (action/c amount?))]
   [to-html
-   (->* (account? my-date?) () #:rest any/c action/c)])
+   (->* (account? my-date?) () #:rest any/c (action/c any/c))])
   
  show-statement
  )
