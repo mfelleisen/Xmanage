@@ -2,32 +2,41 @@
 
 ;; the actions that can be performed on an account
 
+(define action/c (list/c any/c procedure?))
+
 (provide
  (contract-out
   [name->path
    (->* (string?) (#:kind string?) path?)]
 
+  [new-account/2
+   (-> procedure? string? (list/c account? (-> void?)))]
+
   [new-account
-   (->* (string?) (#:first-check# natural?) account?)]
+   (->* (string?) (#:first-check# natural?) action/c)]
   [deposit
    ;; consumes command-line arguments to deposit amount 
-   (->* (account? my-date?) () #:rest (listof string?) account?)]
+   (->* (account? my-date?) () #:rest (listof string?) action/c)]
   [withdraw
    ;; consumes commad-line arguments to withdraw amount
-   (->* (account? my-date?) () #:rest (listof string?) account?)]
+   (->* (account? my-date?) () #:rest (listof string?) action/c)]
   [write-check
    ;; consumes commad-line arguments to record a check at amount
-   (->* (account? my-date? string? string?) () account?)]
+   (->* (account? my-date? string? string?) () action/c)]
   [show-balance
-   (->* (account? my-date?) () #:rest any/c amount?)])
+   (->* (account? my-date?) () #:rest any/c action/c)]
+  [to-html
+   (->* (account? my-date?) () #:rest any/c action/c)])
   
  show-statement
- to-html)
+ )
 
 ;; ---------------------------------------------------------------------------------------------------
 (require "../Xmanaged/data.rkt")
 (require "../Xmanaged/date.rkt")
+(require "../Xmanaged/file-io.rkt")
 (require (lib "decimals.ss" "utils"))
+(require racket/control)
 (require (only-in xml xexpr->xml display-xml/content))
 
 (module+ test
@@ -58,6 +67,10 @@
 (define (name->path name #:kind (kind #false))
   (build-path HOME "Private" "Accounts" "Xmanaged" (if kind name (~a "." name ".act"))))
 
+(define [(write account)]
+  (define file-name (name->path (account-name account)))
+  (with-output-to-file file-name #:exists 'replace (λ () (account-writer (current-output-port) account))))
+
 ;                       
 ;                       
 ;                       
@@ -72,6 +85,20 @@
 ;                       
 ;                       
 ;                       
+
+(define ALREADY-EXISTS "An account with this name already exists.\n")
+
+#; {(Natural -> α)  String -> Void}
+;; the α is Tim Griffin's continuation trick (argh)
+(define (new-account/2 exit-for-testing name #:last-check (last 0))
+  (define a (account name '() 0 (today) '() last))
+  (define (effect)
+    (define file-name (name->path name))
+    (when (file-exists? file-name)
+      (printf ALREADY-EXISTS)
+      (exit-for-testing 1))
+    (with-output-to-file file-name (λ () (account-writer (current-output-port) a))))
+  (list a effect))
 
 #; {String String -> Void}
 ;; EFFECT create a new account file 
@@ -105,7 +132,7 @@
   (define delta   (how 0 amount))
   (define action  (dw msg date delta))
   (set-account-recents! account (cons action history))
-  account)
+  (list account (write account)))
 
 #; (Account Date Amount String -> Void)
 ;; effect: record a deposit
@@ -118,10 +145,9 @@
 #; (Account Date Amount Comment -> Void)
 ;; EFFECT confirm check writing action with a print to console 
 (define (write-check account date amount purpose)
-  (begin0
-    (withdraw account date amount (create-check account purpose))
-    ;; confirmation 
-    (printf "Check No. ~a Today: ~a~n" (account-check-no account) (today))))
+  (match-define (list account+ do) (withdraw account date amount (create-check account purpose)))
+  (define (ackn) (λ () (printf "Check No. ~a Today: ~a~n" (account-check-no account) (today))))
+  (list account+ (compose do ackn)))
 
 #; [Account String -> String]
 ;; create entry for a check in `acc` 
@@ -130,6 +156,14 @@
   (define x (+ (account-check-no acc) 1))
   (set-account-check-no! acc x)
   (~a " " x " " comment #:max-width COMMENT-MAX #:min-width COMMENT-MAX #:left-pad-string " "))
+
+(module+ test ;; testing basic comment property
+  (define LARGE (make-string COMMENT-MAX #\space))
+  (check-equal? (string-length (create-check (struct-copy account Achk) LARGE)) COMMENT-MAX "t")
+
+  (check-equal? (string-length (create-check (struct-copy account Achk) " Claudia")) COMMENT-MAX)
+  (check-equal? (string-length (create-check (struct-copy account A+100chk) " Claudia")) COMMENT-MAX)
+  (check-equal? (string-length (create-check (struct-copy account A+100-50chk) " C")) COMMENT-MAX))
 
 ;                                                   
 ;   ;                                               
@@ -148,11 +182,7 @@
 
 (define (show-balance a _date . _others)
   (define b (+ (transactions->balance (account-recents a)) (account-balance a)))
-  b
-  #;
-  (values
-    b 
-    (λ () (printf "~a\n" (number->decimal-string b)))))
+  (list b void))
 
 ;                                            
 ;                            ;               
@@ -171,12 +201,14 @@
 
 (define show-statement void)
 
-#; {Account -> Void}
-(define (to-html a)
+#; {Account Date -> Void}
+(define (to-html a my-dste . _other)
   (define page:xml (xexpr->xml (account-to-html a)))
   (define file     (name->path (account-name a) #:kind '.html))
-  (with-output-to-file file #:exists 'replace (lambda () (display-xml/content page:xml)))
-  (system (format "open ~a" file)))
+  (list '_
+        (λ ()
+          (with-output-to-file file #:exists 'replace (lambda () (display-xml/content page:xml)))
+          (system (format "open ~a" file)))))
 
 (define COMPLETE "Complete transactions for ")
 
@@ -371,29 +403,45 @@
 ;                                     
 ;                                     
 
+(module+ test 
+  #; {String -> Account}
+  ;; EFFECT run the effect of making a new account 
+  (define (run-new-account/2 name)
+    (prompt 
+     (match-define (list a do) (new-account/2 (λ (x) (control k x)) name))
+     (do)
+     a))
+
+  #; {Procedure Any ... -> Any}
+  (define (run f . others)
+    (match-define (list r _) (apply f others))
+    r))
+
+(module+ test ;; new account
+  (dynamic-wind
+   (λ ()
+     (define a (run-new-account/2 "ttt"))
+     (check-equal? (run show-balance a (today)) 0))
+
+   (λ ()
+     ;; re-create to trigger failure
+     (check-match (with-output-to-string (λ () (check-equal? (run-new-account/2 "ttt") 1)))
+                  (pregexp ALREADY-EXISTS)))
+   
+   (λ ()
+     (delete-file ".ttt.act"))))
+
 (module+ test ;; testing deposits, withdrawals, and check writing
   (define 2day '(2026 6 6))
 
-  (check-equal? (deposit (struct-copy account Achk) 2day "100" 100purpose) A+100chk)
-  (check-equal? (withdraw (struct-copy account A+100chk) 2day "50" 50purpose) A+100-50chk)
- 
-  (check-match
-   (with-output-to-string
-     (λ ()
-       (check-equal? (write-check (struct-copy account A+100chk) 2day "25" 25purpose) A+100+25chk)))
-   (pregexp #px"Check No.")))
+  (check-equal? (run deposit (struct-copy account Achk) 2day "100" 100purpose) A+100chk)
+  (check-equal? (run withdraw (struct-copy account A+100chk) 2day "50" 50purpose) A+100-50chk)
+  (check-equal? (run write-check (struct-copy account A+100chk) 2day "25" 25purpose) A+100+25chk))
 
 (module+ test ;; error checking
-  (check-exn #px"\\(amount" (λ () (deposit (struct-copy account Achk) 2day "100" "666" 100purpose))))
-
-(module+ test ;; testing basic comment property
-  (check-equal? (string-length (create-check Achk (make-string COMMENT-MAX #\space))) COMMENT-MAX "t")
-
-  (check-equal? (string-length (create-check Achk " Caludia")) COMMENT-MAX)
-  (check-equal? (string-length (create-check A+100chk " Caludia")) COMMENT-MAX)
-  (check-equal? (string-length (create-check A+100-50chk " Caludia")) COMMENT-MAX))
+  (check-exn #px"\\(amount" (λ () (run deposit (struct-copy account Achk) 2day "10" "6" 100purpose))))
 
 (module+ test ;; tests for balance
-  (check-equal? (show-balance Achk 2day) 0)
-  (check-equal? (show-balance A+100chk 2day) 100)
-  (check-equal? (show-balance A+100+25chk 2day) 75))
+  (check-equal? (run show-balance Achk 2day) 0)
+  (check-equal? (run show-balance A+100chk 2day) 100)
+  (check-equal? (run show-balance A+100+25chk 2day) 75))

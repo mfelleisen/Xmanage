@@ -39,8 +39,9 @@ exec racket -tm "$0" -- ${1+"$@"}
 
 (define START
   (list #; [List String String ((Natural -> α) Any ...) -> Any]
-        (list "-help" "to see this message"                   (λ _ (help-msg #:header USAGE ALL)))
-        (list "-new"  "<name> for a new account named <name>" (λ (a b) (new-account/2 a b)))))
+        (list "-help" "to see this message"
+              (λ _ (list '_ (λ () (help-msg #:header USAGE ALL)))))
+        (list "-new"  "<name> for a new account named <name>" new-account/2)))
 
 (define MAN
   (list #; [List String String (Account -> Any)]
@@ -81,7 +82,7 @@ exec racket -tm "$0" -- ${1+"$@"}
 ;                              
 ;                              
 
-(define (main  #:exit (exit-for-testing exit) . argv)
+(define (main #:exit (exit-for-testing exit) . argv)
   (match argv
     [(list* (app (action> START) (and (? procedure?) action)) other)
      (generic-command exit-for-testing action other)]
@@ -100,28 +101,23 @@ exec racket -tm "$0" -- ${1+"$@"}
 
 #; {(Natural -> α) [(Natural -> α) #:rest ANY -> ANY] [Listof Any] -> Any}
 (define (generic-command exit-for-testing action other)
-  (apply action exit-for-testing other))
-
-#; {(Natural -> α) String Any [Listof Any] -> α}
-(define (ill-formed-command exit-for-testing name any other)
-  (does-account-already-exist exit-for-testing name)
-  (help-msg MAN)
-  (exit-for-testing 1))
+  (match-define (list _ do) (apply action exit-for-testing other))
+  (do))
 
 #; {(Natural -> α) [Account Date #:rest ANY -> ANY] String [Listof Any] -> Any}
 (define (account-specific-command exit-for-testing action name other)
   (with-handlers ([exn? (λ (xn) xn)])
     (define file-name (does-account-already-exist exit-for-testing name))
     (define account (call-with-input-file file-name account-reader))
-    (define optional-action (apply action account (today) other))
-    (with-output-to-file file-name
-      #:exists 'replace
-      (λ () 
-        (account-writer (current-output-port) account)))
-    (cond
-      [(number? optional-action) (number->decimal-string optional-action)]
-      [(procedure? optional-action) (optional-action)]
-      [else optional-action])))
+    (match-define (list r optional-action) (apply action account (today) other))
+    (optional-action)
+    r))
+
+#; {(Natural -> α) String Any [Listof Any] -> α}
+(define (ill-formed-command exit-for-testing name any other)
+  (does-account-already-exist exit-for-testing name)
+  (help-msg MAN)
+  (exit-for-testing 1))
 
 #; {(Natural -> α) String -> PathString}
 (define (does-account-already-exist exit-for-testing name)
@@ -130,16 +126,6 @@ exec racket -tm "$0" -- ${1+"$@"}
     (println NOT-EXISTS)
     (exit-for-testing 1))
   file-name)
-
-#; {(Natural -> α)  String -> Void}
-;; the α is Tim Griffin's continuation trick (argh)
-(define (new-account/2 exit-for-testing name)
-  (define file-name (name->path name))
-  (when (file-exists? file-name)
-    (printf ALREADY-EXISTS)
-    (exit-for-testing 1))
-  (define account (new-account name))
-  (with-output-to-file file-name (λ () (account-writer (current-output-port) account))))
 
 ;                                                   
 ;                                                   
@@ -161,7 +147,7 @@ exec racket -tm "$0" -- ${1+"$@"}
    (λ ()
      ;; create new account, check that it exists and works
      (main "-new" "ttt")
-     (check-equal? (main "ttt" "-b") "0"))
+     (check-equal? (main "ttt" "-b") 0))
 
    (λ ()
      ;; re-create to trigger failure
@@ -184,7 +170,6 @@ exec racket -tm "$0" -- ${1+"$@"}
                  (λ ()
                    (check-equal? (prompt (main "check" "-notcom" #:exit (λ (x) (control k x)))) 1)))
                (pregexp "manage"))
-
 
   (check-match (with-output-to-string ;; non-existing account, invalid comand 
                  (λ ()
