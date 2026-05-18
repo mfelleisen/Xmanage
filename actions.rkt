@@ -69,7 +69,7 @@
 
 (define [(write account)]
   (define file-name (name->path (account-name account)))
-  (with-output-to-file file-name #:exists 'replace (λ () (account-writer (current-output-port) account))))
+  (with-output-to-file file-name #:exists 'replace (λ () (account-writer account))))
 
 ;                       
 ;                       
@@ -97,7 +97,7 @@
     (when (file-exists? file-name)
       (printf ALREADY-EXISTS)
       (exit-for-testing 1))
-    (with-output-to-file file-name (λ () (account-writer (current-output-port) a))))
+    (with-output-to-file file-name (λ () (account-writer a))))
   (list a effect))
 
 ;                                                                                                    

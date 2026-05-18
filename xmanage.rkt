@@ -107,7 +107,7 @@ exec racket -tm "$0" -- ${1+"$@"}
 (define (account-specific-command exit-for-testing action name other)
   (with-handlers ([exn? (λ (xn) xn)])
     (define file-name (does-account-already-exist exit-for-testing name))
-    (define account (call-with-input-file file-name account-reader))
+    (define account (with-input-from-file file-name account-reader))
     (match-define (list r optional-action) (apply action account (today) other))
     (optional-action)
     r))

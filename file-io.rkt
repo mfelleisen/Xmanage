@@ -13,10 +13,10 @@
 (provide
  (contract-out
   [account-reader
-   (->i ([ip input-port?]) (a balanced-account/c))]
+   (-> balanced-account/c)]
   
   [account-writer
-   (-> output-port? balanced-account/c any)]))
+   (-> balanced-account/c any)]))
 
 (module+ examples
   (provide (all-defined-out)))
@@ -91,7 +91,7 @@
   (define A+100-50chk  (A->account A+100-50 0))
 
   (define chase-chk
-    (with-input-from-file "../.chase.act" (λ () (account-reader (current-input-port))))))
+    (with-input-from-file "../.chase.act" (λ () (account-reader)))))
 
 ;                                     
 ;                                     
@@ -108,12 +108,12 @@
 ;                 ;                   
 ;                 ;                   
 
-#; {InputPort -> Account}
+#; {-> Account}
 ;; EFFECT read an A-expression from port
 ;; EFFECT may raise exceptions due to ill-formed file content
-(define (account-reader account-port)
+(define (account-reader)
   (parameterize ([read-decimal-as-inexact #false])
-    (A->account (read account-port) (read account-port))))
+    (A->account (read) (read))))
  
 #; {S-expression S-expression -> Account}
 (define (A->account x last-check#)
@@ -151,18 +151,6 @@
     [_
      (error 'list->dw "DWList expected, found ~a" xy)]))
 
-(define (n/ds a xy)
-  (define b (number->decimal-string a))
-  (when (integer? a)
-    (set! b (~a b ".00")))
-  (unless (integer? a)
-    (when (integer? (* 10 a))
-      (set! b (~a b "0"))))
-  (unless (and (integer? (* 100 a)))
-    (error 'ouch "~a ~a ~a\n" xy a (* 100 a)))
-  (~a b #:min-width 10 #:align 'right #:left-pad-string " "))
-
-
 (module+ test
   (check-equal? (list->dw (list "a" '(2026 6 6) -100)) (dw "a" '(2026 6 6) -100) "coverage 1"))
 
@@ -181,12 +169,12 @@
 ;                        ;                   
 ;                        ;                   
 
-#; {OutputPort Account -> Void}
+#; {Account -> Void}
 ;; EFFECT output account as an A-expression
-(define (account-writer account-port x)
-  (pretty-write (account->A x) account-port)
-  (display (account-check-no x) account-port)
-  (display "; last check written" account-port))
+(define (account-writer x)
+  (pretty-write (account->A x))
+  (display (account-check-no x))
+  (display "; last check written"))
 
 #; {Account -> A}
 (define (account->A x)
@@ -230,23 +218,16 @@
     (with-output-to-string
       (λ ()
         (define a (A->account A+100-50 0))
-        (account-writer (current-output-port) a))))
-  (check-equal? (with-input-from-string A+100-50-file
-                  (λ () (account-reader (current-input-port))))
+        (account-writer a))))
+  (check-equal? (with-input-from-string A+100-50-file account-reader)
                 (A->account A+100-50 0)
                 "basic I/O back and forth"))
 
 (module+ test
-  (check-exn #px"does not add up"
-             (λ ()
-               (with-input-from-file "../.check.act" (λ () (account-reader (current-input-port))))))
+  (check-exn #px"does not add up" (λ () (with-input-from-file "../.check.act" account-reader)))
 
-  (check-true
-   (account?
-    (with-input-from-file "../.van.act" (λ () (account-reader (current-input-port)))))
-   "check consistency of van account for validity")
+  (check-true (account? (with-input-from-file "../.van.act" account-reader))
+              "check consistency of van account for validity")
 
-  (check-true
-   (account? 
-    (with-input-from-file "../.chase.act" (λ () (account-reader (current-input-port)))))
-   "check consistency of chase account for validity"))
+  (check-true (account? (with-input-from-file "../.chase.act" account-reader))
+              "check consistency of chase account for validity"))
