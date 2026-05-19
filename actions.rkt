@@ -3,7 +3,7 @@
 ;; the actions that can be performed on an account
 
 ;; TODO
-;; -- test effects
+;; -- abstract over "open" for HTML
 
 (define (action/c x/c) (list/c x/c (-> any)))
 
@@ -13,7 +13,7 @@
    (->* (string?) (#:kind string?) path?)]
 
   [new-account/2
-   (-> procedure? string? (list/c account? (-> void?)))]
+   (-> procedure? string? (action/c account?))]
   [deposit
    ;; consumes command-line arguments to deposit amount 
    (->* (account? my-date?) () #:rest (listof string?) (action/c account?))]
@@ -64,12 +64,23 @@
 
 (define HOME (find-system-path 'home-dir))
 
-(define (name->path name #:kind (kind #false))
-  (build-path HOME "Private" "Accounts" "Xmanaged" (if kind name (~a "." name ".act"))))
+(define (name->path name #:kind (proper-or-html #false))
+  (build-path HOME "Private" "Accounts" "Xmanaged" (if proper-or-html name (~a "." name ".act"))))
 
 (define [(write account)]
   (define file-name (name->path (account-name account)))
   (with-output-to-file file-name #:exists 'replace (λ () (account-writer account))))
+
+(module+ test
+  (check-equal? (name->path "name") (build-path HOME "Private" "Accounts" "Xmanaged" ".name.act"))
+  (check-equal? (name->path "n" #:kind "html") (build-path HOME "Private" "Accounts" "Xmanaged" "n"))
+  
+  (let ([file-name (name->path (account-name checking))])
+    (dynamic-wind
+     void
+     (λ () (check-true (void? [(write checking)]) "dumb check"))
+     (λ () (delete-file file-name)))))
+
 
 ;                       
 ;                       
@@ -141,8 +152,8 @@
 ;; EFFECT confirm check writing action with a print to console 
 (define (write-check account date amount purpose)
   (match-define (list account+ do) (withdraw account date amount (create-check account purpose)))
-  (define (ackn) (λ () (printf "Check No. ~a Today: ~a~n" (account-check-no account) (today))))
-  (list account+ (compose do ackn)))
+  (define (ackn) (printf "Check No. ~a Today: ~a~n" (account-check-no account) (today)))
+  (list account+ (λ () (do) (ackn))))
 
 #; [Account String -> String]
 ;; create entry for a check in `acc` 
@@ -152,6 +163,7 @@
   (set-account-check-no! acc x)
   (~a " " x " " comment #:max-width COMMENT-MAX #:min-width COMMENT-MAX #:left-pad-string " "))
 
+;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; testing basic comment property
   (define LARGE (make-string COMMENT-MAX #\space))
   (check-equal? (string-length (create-check (struct-copy account Achk) LARGE)) COMMENT-MAX "t")
@@ -410,8 +422,20 @@
   #; {Procedure Any ... -> Any}
   (define (run f . others)
     (match-define (list r _) (apply f others))
-    r))
+    r)
 
+  #; {(Account #:file-to-be-created Any ... -> [List Any (-> Void)])}
+  (define (run-for-effect f  a #:file-to-be-created (fn (name->path (account-name a))) . others)
+    (match-define (list _ do) (apply f a others))
+    (dynamic-wind
+     (λ () (delete-directory/files fn #:must-exist? #false))
+     (λ ()
+       (begin0
+         (with-output-to-string do)
+         (check-true (file-exists? fn))))
+     (λ () (delete-file fn)))))
+
+;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; new account
   (dynamic-wind
    (λ ()
@@ -425,7 +449,7 @@
    
    (λ ()
      (delete-file ".ttt.act"))))
-
+;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; testing deposits, withdrawals, and check writing
   (define 2day '(2026 6 6))
 
@@ -433,9 +457,19 @@
   (check-equal? (run withdraw (struct-copy account A+100chk) 2day "50" 50purpose) A+100-50chk)
   (check-equal? (run write-check (struct-copy account A+100chk) 2day "25" 25purpose) A+100+25chk))
 
+;; ---------------------------------------------------------------------------------------------------
+(module+ test ;; check that it creates the account file and prints confirmation message to STDOUT 
+  (check-match (run-for-effect write-check (struct-copy account A+100chk) 2day "25" 25purpose)
+               (pregexp "Check No."))
+
+  (define a (struct-copy account A+100chk))
+  (run-for-effect to-html a 2day #:file-to-be-created (name->path (account-name a) #:kind ".html")))
+
+;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; error checking
   (check-exn #px"\\(amount" (λ () (run deposit (struct-copy account Achk) 2day "10" "6" 100purpose))))
 
+;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; tests for balance
   (check-equal? (run show-balance Achk 2day) 0)
   (check-equal? (run show-balance A+100chk 2day) 100)
