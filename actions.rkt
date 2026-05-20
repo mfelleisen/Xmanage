@@ -3,7 +3,6 @@
 ;; the actions that can be performed on an account
 
 ;; TODO
-;; -- abstract over "open" for HTML
 
 (define (action/c x/c) (list/c x/c (-> any)))
 
@@ -26,10 +25,7 @@
   [show-balance
    (->* (account? my-date?) () #:rest any/c (action/c amount?))]
   [to-html
-   (->* (account? my-date?) () #:rest any/c (action/c any/c))])
-  
- show-statement
- )
+   (->* (account? my-date?) () #:rest any/c (action/c any/c))]))
 
 ;; ---------------------------------------------------------------------------------------------------
 (require "../Xmanaged/data.rkt")
@@ -40,6 +36,7 @@
 (require (only-in xml xexpr->xml display-xml/content))
 
 (module+ test
+  #;
   (require (submod ".."))
   (require (submod "../Xmanaged/file-io.rkt" examples))
   (require rackunit))
@@ -65,7 +62,8 @@
 (define HOME (find-system-path 'home-dir))
 
 (define (name->path name #:kind (proper-or-html #false))
-  (build-path HOME "Private" "Accounts" "Xmanaged" (if proper-or-html name (~a "." name ".act"))))
+  (define file-name (if proper-or-html (~a name "." proper-or-html) (~a "." name ".act")))
+  (build-path HOME "Private" "Accounts" "Xmanaged" file-name))
 
 (define [(write account)]
   (define file-name (name->path (account-name account)))
@@ -73,7 +71,7 @@
 
 (module+ test
   (check-equal? (name->path "name") (build-path HOME "Private" "Accounts" "Xmanaged" ".name.act"))
-  (check-equal? (name->path "n" #:kind "html") (build-path HOME "Private" "Accounts" "Xmanaged" "n"))
+  (check-equal? (name->path "n" #:kind "h") (build-path HOME "Private" "Accounts" "Xmanaged" "n.h"))
   
   (let ([file-name (name->path (account-name checking))])
     (dynamic-wind
@@ -206,16 +204,15 @@
 ;                                            
 ;                                            
 
-(define show-statement void)
-
 #; {Account Date -> Void}
-(define (to-html a my-dste . _other)
+(define (to-html a my-dste  #:open (open "open") . _other)
   (define page:xml (xexpr->xml (account-to-html a)))
-  (define file     (name->path (account-name a) #:kind '.html))
+  (define file     (name->path (account-name a) #:kind 'html))
   (list '_
         (λ ()
           (with-output-to-file file #:exists 'replace (lambda () (display-xml/content page:xml)))
-          (system (format "open ~a" file)))))
+          (system (~a open " " (path->string file)))
+          (sleep 1))))
 
 (define COMPLETE "Complete transactions for ")
 
@@ -428,12 +425,15 @@
   (define (run-for-effect f  a #:file-to-be-created (fn (name->path (account-name a))) . others)
     (match-define (list _ do) (apply f a others))
     (dynamic-wind
-     (λ () (delete-directory/files fn #:must-exist? #false))
+     (λ ()
+       (delete-directory/files fn #:must-exist? #false))
      (λ ()
        (begin0
          (with-output-to-string do)
          (check-true (file-exists? fn))))
-     (λ () (delete-file fn)))))
+     (λ ()
+       (sleep .1)
+       (delete-file fn)))))
 
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; new account
@@ -460,10 +460,13 @@
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; check that it creates the account file and prints confirmation message to STDOUT 
   (check-match (run-for-effect write-check (struct-copy account A+100chk) 2day "25" 25purpose)
-               (pregexp "Check No."))
-
+               (pregexp "Check No.")))
+;; ---------------------------------------------------------------------------------------------------
+(module+ test ;; check that it creates the HTML file 
   (define a (struct-copy account A+100chk))
-  (run-for-effect to-html a 2day #:file-to-be-created (name->path (account-name a) #:kind ".html")))
+  (define f (name->path (account-name a) #:kind "html"))
+  (check-equal? (run-for-effect  (λ x (apply to-html #:open "ls -a" x)) a 2day #:file-to-be-created f)
+                (~a (path->string f) "\n")))
 
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; error checking
