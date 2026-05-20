@@ -17,3 +17,9 @@
 (define (today)
   (let ([d (seconds->date (current-seconds))])
     (list (date-year d) (date-month d) (date-day d))))
+
+(module+ test
+  (require rackunit)
+
+  (check-true (my-date? (today)))
+  (check-exn #px"date expected" (λ () (my-date? '(1 2 3 4)))))
