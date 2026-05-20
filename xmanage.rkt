@@ -49,7 +49,6 @@ exec racket -tm "$0" -- ${1+"$@"}
         (list "-w" "<num> <comment> for withdrawals"           withdraw)
         (list "-c" "<num> <comment> for checks"                write-check)
         (list "-b" "for balance"                               show-balance)
-        (list "-s" "for complete statement"                    show-statement)
         (list "-a" "for an HTML rendering, like a spreadsheet" to-html)))
 
 (define ALL (append START MAN))
