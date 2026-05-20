@@ -43,6 +43,11 @@
 ;; -------------------------------------------------------------------------------------------------
 (require "../Xmanaged/date.rkt")
 
+(module+ test
+  (require (submod ".."))
+  (require (submod ".." examples))
+  (require rackunit))
+
 ;                                                   
 ;                                                   
 ;                                        ;          
@@ -111,33 +116,27 @@
     (define dw+      (list h balance+))
     (values balance+ (cons dw+ r))))
 
-;                       
-;                     ; 
-;          ;;;        ; 
-;            ;        ; 
-;    ;;;     ;     ;;;; 
-;   ;; ;;    ;    ;; ;; 
-;   ;   ;    ;    ;   ; 
-;   ;   ;    ;    ;   ; 
-;   ;   ;    ;    ;   ; 
-;   ;; ;;    ;    ;; ;; 
-;    ;;;      ;;   ;;;; 
-;                       
-;                       
-;                       
+;                                     
+;                                     
+;     ;                    ;          
+;     ;                    ;          
+;   ;;;;;   ;;;    ;;;   ;;;;;   ;;;  
+;     ;    ;;  ;  ;   ;    ;    ;   ; 
+;     ;    ;   ;; ;        ;    ;     
+;     ;    ;;;;;;  ;;;     ;     ;;;  
+;     ;    ;          ;    ;        ; 
+;     ;    ;      ;   ;    ;    ;   ; 
+;     ;;;   ;;;;   ;;;     ;;;   ;;;  
+;                                     
+;                                     
+;                                     
 
-(define SPECIAL 5) ;; the 5th of every month is special charges day
-(define DEDUCTS 
-  '(
-    #;
-    (" heloc                       " 3188.36)
-    #;
-    (" condo fee                   "  500.00)))
+(module+ test
+  (check-equal? (checking0) (new-account "checking"))
 
-(define DEDUCTS-chase
-  '((" mortgage                    " 2209.74)
-    (" INVEST VAN                  "  200.00)))
-
-(define DEDUCTS-condo
-  '(
-    (" insurance (barry/mcchough)   "  622.17))) #; [415.33 423.25 480.64 509.71 540.62]
+  (define dw0 (dw "test" (today) 10))
+  (check-equal? (transactions->running-balance (list dw0) 10. -) (list (list dw0 0.))
+                "running balance: an account w/o initial deposit")
+  
+  (check-equal? (transactions->balance (list dw0)) 10
+                "balance: an account w/o initial deposit"))
