@@ -10,7 +10,6 @@ exec racket -tm "$0" -- ${1+"$@"}
 (require "data.rkt")
 (require "file-io.rkt")
 (require "actions.rkt")
-(require (lib "decimals.ss" "utils"))
 
 (module+ test
   (require racket/control)
