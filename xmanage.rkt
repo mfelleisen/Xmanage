@@ -4,6 +4,8 @@ exec racket -tm "$0" -- ${1+"$@"}
 |#
 #lang racket
 
+;; main for managing checking accounts 
+
 (provide main)
 
 (require "date.rkt")

@@ -2,8 +2,6 @@
 
 ;; the actions that can be performed on an account
 
-;; TODO
-
 (define (action/c x/c) (list/c x/c (-> any)))
 
 (provide
