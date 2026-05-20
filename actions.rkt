@@ -7,6 +7,8 @@
 (define (action/c x/c) (list/c x/c (-> any)))
 
 (provide
+ (rename-out [to-html to-html/t])
+
  (contract-out
   [name->path
    (->* (string?) (#:kind string?) path?)]
@@ -36,7 +38,6 @@
 (require (only-in xml xexpr->xml display-xml/content))
 
 (module+ test
-  #;
   (require (submod ".."))
   (require (submod "../Xmanaged/file-io.rkt" examples))
   (require rackunit))
@@ -205,7 +206,7 @@
 ;                                            
 
 #; {Account Date -> Void}
-(define (to-html a my-dste  #:open (open "open") . _other)
+(define (to-html a my-dste #:open (open "open") . _other)
   (define page:xml (xexpr->xml (account-to-html a)))
   (define file     (name->path (account-name a) #:kind 'html))
   (list '_
@@ -465,7 +466,7 @@
 (module+ test ;; check that it creates the HTML file 
   (define a (struct-copy account A+100chk))
   (define f (name->path (account-name a) #:kind "html"))
-  (check-equal? (run-for-effect  (λ x (apply to-html #:open "ls -a" x)) a 2day #:file-to-be-created f)
+  (check-equal? (run-for-effect (λ x (apply to-html/t #:open "ls" x)) a 2day #:file-to-be-created f)
                 (~a (path->string f) "\n")))
 
 ;; ---------------------------------------------------------------------------------------------------
