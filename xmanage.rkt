@@ -109,8 +109,7 @@ exec racket -tm "$0" -- ${1+"$@"}
     (define file-name (does-account-already-exist exit-for-testing name))
     (define account (with-input-from-file file-name account-reader))
     (match-define (list r optional-action) (apply action account (today) other))
-    (optional-action)
-    r))
+    (optional-action)))
 
 #; {(Natural -> α) String Any [Listof Any] -> α}
 (define (ill-formed-command exit-for-testing name any other)
