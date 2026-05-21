@@ -108,7 +108,9 @@ exec racket -tm "$0" -- ${1+"$@"}
   (with-handlers ([exn? (λ (xn) xn)])
     (define file-name (does-account-already-exist exit-for-testing name))
     (define account (with-input-from-file file-name account-reader))
-    (match-define (list r optional-action) (apply action account (today) other))
+    (define 2day (today))
+    (update account 2day)
+    (match-define (list r optional-action) (apply action account 2day other))
     (optional-action)))
 
 #; {(Natural -> α) String Any [Listof Any] -> α}

@@ -2,7 +2,7 @@
 
 ;; a simple data representation of dates
 
-(provide #; Date today my-date?)
+(provide #; Date today my-date? next-month)
 
 #; {type Date = [List Natural Natural Natural]}
 
@@ -17,6 +17,14 @@
 (define (today)
   (let ([d (seconds->date (current-seconds))])
     (list (date-year d) (date-month d) (date-day d))))
+
+#; {Date Date -> Date}
+(define (next-month date1 date2)
+  (match-define [list _year1 month1 _day1] date1)
+  (match-define [list _year2 month2 _day2] date2)
+  (or (< month1 month2)
+      (and (= month1 12)
+           (< month2 12))))
 
 (module+ test
   (require rackunit)

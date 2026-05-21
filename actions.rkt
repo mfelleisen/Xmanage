@@ -14,6 +14,9 @@
   [name->path
    (->* (string?) (#:kind string?) path?)]
 
+  [update
+   (-> account? my-date? void?)]
+
   [new-account/2
    (-> procedure? string? (action/c account?))]
   [deposit
@@ -190,6 +193,45 @@
   (define b (+ (transactions->balance (account-recents a)) (account-balance a)))
   (list b (λ () (printf "~a\n" (amount->decimal-string b)))))
 
+;                                            
+;                     ;                      
+;                     ;           ;          
+;                     ;           ;          
+;   ;   ;  ;;;;    ;;;;  ;;;;   ;;;;;   ;;;  
+;   ;   ;  ;; ;;  ;; ;;      ;    ;    ;;  ; 
+;   ;   ;  ;   ;  ;   ;      ;    ;    ;   ;;
+;   ;   ;  ;   ;  ;   ;   ;;;;    ;    ;;;;;;
+;   ;   ;  ;   ;  ;   ;  ;   ;    ;    ;     
+;   ;   ;  ;; ;;  ;; ;;  ;   ;    ;    ;     
+;    ;;;;  ;;;;    ;;;;   ;;;;    ;;;   ;;;; 
+;          ;                                 
+;          ;                                 
+;          ;                                 
+
+(define (update account action-date)
+  (define last-date (account-balance-date account))
+  (when (next-month last-date action-date)
+    (define-values (balance history)
+      (for/fold ([balance (account-balance account)]
+                 [history (account-history account)])
+                ([r (account-recents account)])
+        (values (+ (dw-amount r) balance)
+                (cons r history))))
+    (set-account-recents! account '())
+    (set-account-history! account history)
+    (set-account-balance-date! account action-date)
+    (set-account-balance! account balance)))
+
+(module+ test
+  (let () ;; test update 
+    (define Acopied  (struct-copy account A+100chk))
+    (define nextdate '(2026 8 20))
+    (define exp (account "checking" '() 100  nextdate (account-recents A+100chk) 0))
+    (update Acopied nextdate)
+    (check-equal? Acopied exp)))
+
+
+  
 ;                                            
 ;                            ;               
 ;                            ;               
@@ -441,7 +483,8 @@
   (dynamic-wind
    (λ ()
      (define a (run-new-account/2 "ttt"))
-     (check-equal? (run show-balance a (today)) 0))
+     (check-equal? (run show-balance a (today)) 0)
+     (check-equal? (with-output-to-string (λ () [(second (show-balance a (today)))])) "0.00\n"))
 
    (λ ()
      ;; re-create to trigger failure
