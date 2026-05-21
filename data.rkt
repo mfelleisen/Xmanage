@@ -2,6 +2,9 @@
 
 ;; the basic data representation of an account
 
+(define string-amount
+  (and/c string? (flat-named-contract 'amount (λ (x) (regexp-match #px"\\d*\\.\\d\\d" x)))))
+
 (provide
  (contract-out
 
@@ -29,7 +32,10 @@
                        (λ (r) (equal? dws (reverse (map first r)))))))]
 
   [amount?
-   (-> any/c boolean?)]))
+   (-> any/c boolean?)]
+
+  [amount->decimal-string
+   (-> rational? string-amount)]))
 
 (provide
  ;; match expander
@@ -74,6 +80,16 @@
   (λ (stx)
     (syntax-case stx ()
       [(_ x) #'(app string->number (and amount? positive? x))])))
+
+(define (amount->decimal-string a)
+  (~r a #:precision '(= 2)))
+    
+(module+ test
+  (check-equal? (amount->decimal-string 3.0) "3.00")
+  (check-equal? (amount->decimal-string 43.12) "43.12")
+  (check-equal? (amount->decimal-string 43.1) "43.10")
+  (check-equal? (amount->decimal-string 43.0) "43.00"))
+
 
 ;                                                          
 ;                                                          

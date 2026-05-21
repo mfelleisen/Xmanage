@@ -2,7 +2,10 @@
 
 ;; the actions that can be performed on an account
 
-(define (action/c x/c) (list/c x/c (-> any)))
+;; the result plus action setup makes unit testing convenient and effective
+;; but is useless for the actual script. 
+(define (action/c x/c)
+  (list/c x/c (-> any)))
 
 (provide
  (rename-out [to-html to-html/t])
@@ -31,7 +34,6 @@
 (require "../Xmanaged/data.rkt")
 (require "../Xmanaged/date.rkt")
 (require "../Xmanaged/file-io.rkt")
-(require (lib "decimals.ss" "utils"))
 (require racket/control)
 (require (only-in xml xexpr->xml display-xml/content))
 
@@ -186,7 +188,7 @@
 
 (define (show-balance a _date . _others)
   (define b (+ (transactions->balance (account-recents a)) (account-balance a)))
-  (list b void))
+  (list b (λ () (printf "~a\n" (amount->decimal-string b)))))
 
 ;                                            
 ;                            ;               
@@ -228,7 +230,7 @@
   (define recent:xexpr  (transactions-to-html recents+))
   (define history:xexpr (transactions-to-html history+))
   
-  (assemble-page title date (number->decimal-string b) recent:xexpr history:xexpr))
+  (assemble-page title date (amount->decimal-string b) recent:xexpr history:xexpr))
 
 #; {String String String Xexpr Xexpr -> Xexpr}
 (define (assemble-page title date b recent:xexpr history:xexpr)
@@ -274,7 +276,7 @@
     (define dw      (first t))
     (define comment (dw-comment dw))
     (define amount  (dw-amount dw))
-    (define x       (~r (abs amount) #:precision '(= 2)))
+    (define x       (amount->decimal-string (abs amount)))
     
     (define check? (or (regexp-match #px"^ (\\d+) " comment) (regexp-match #px"^\\*(\\d+) " comment)))
     
@@ -284,7 +286,7 @@
               #:purpose    (td-left (purpose-to-html check? comment))
               #:withdrawal (td-right (if (>= amount 0) "" x))
               #:deposit    (td-right (if (> amount 0)  x ""))
-              #:total      (td-right (~r (second t) #:precision '(= 2)))
+              #:total      (td-right (amount->decimal-string (second t)))
               #:yes        (td-center (if (regexp-match "^\\*" comment) check-mark "")))))
 
 #; {(U False [List String String] Amount -> [List [List TD-Attribute String]])}
@@ -383,7 +385,7 @@
                     (table
                      ((border "0") (cellpadding "0") (cellspacing "0"))
                      ,(headers)
-                     ,@(assemble-separators (date-to-html (today)) "0")))))))
+                     ,@(assemble-separators (date-to-html (today)) "0.00")))))))
 
 (module+ test
   #;

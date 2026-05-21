@@ -24,7 +24,6 @@
 ;; -------------------------------------------------------------------------------------------------
 (require "../Xmanaged/date.rkt")
 (require "../Xmanaged/data.rkt")
-(require (lib "decimals.ss" "utils"))
 
 (module+ examples
   (require (submod "../Xmanaged/data.rkt" examples))
@@ -58,7 +57,7 @@
   (define 50purpose "one withdrawal")
   (define 25purpose  "one check written")  
 
-  (define (one-recent-plus-100 A (d "100") (msg 100purpose))
+  (define (one-recent-plus-100 A (d "100.00") (msg 100purpose))
     (match A
       [(list name recents balance date history)
        (define dw (list msg '(2026 6 6) d))
@@ -67,7 +66,7 @@
   (define (one-recent-minus-100 A)
     (match A
       [(list name recents balance date history)
-       (define dw (list 50purpose '(2026 6 6) "-50"))
+       (define dw (list 50purpose '(2026 6 6) "-50.00"))
        (list name (cons dw recents) balance date history)]))
   
   (define (Achecking0 (x 0))
@@ -84,7 +83,7 @@
   (define 1-25purpose  (~a " " (add1 (account-check-no A+100chk)) " " 25purpose
                            ;; the next line cheats: 30 comes from actions.rkt
                            #:max-width 30 #:min-width 30 #:left-pad-string " "))
-  (define A+100+25     (one-recent-plus-100 (one-recent-plus-100 (Achecking0 1)) "-25" 1-25purpose))
+  (define A+100+25    (one-recent-plus-100 (one-recent-plus-100 (Achecking0 1)) "-25.00" 1-25purpose))
   (define A+100+25chk  (A->account A+100+25 1))
   
   (define A+100-50     (one-recent-minus-100 (one-recent-plus-100 (Achecking0))))
@@ -112,28 +111,26 @@
 ;; EFFECT read an A-expression from port
 ;; EFFECT may raise exceptions due to ill-formed file content
 (define (account-reader)
-  (parameterize ([read-decimal-as-inexact #false])
-    (A->account (read) (read))))
+  (A->account (read) (read)))
  
 #; {S-expression S-expression -> Account}
 (define (A->account x last-check#)
-  (match x
-    [(list (? string? name)
-           (app list*->dw recents)
-           (? rational? balance)
-           (? my-date? date)
-           (app list*->dw history))
-     (define expected-balance (transactions->balance history))
-     (unless (= expected-balance balance)
-       #;
-       (pretty-print (map dw-amount history) [current-error-port])
-       (error 'account-reader "~a history does not add up to balance, found ~a vs ~a (delta = ~a)"
-              name
-              (exact->inexact balance)
-              (exact->inexact expected-balance)
-              (exact->inexact (- balance expected-balance))))
-     (account name recents balance date history last-check#)]
-    [_ (error 'A->account "A expression expected, found ~a ~a" x last-check#)]))
+  (parameterize ([read-decimal-as-inexact #false])
+    (match x
+      [(list (? string? name)
+             (app list*->dw recents)
+             (? rational? balance)
+             (? my-date? date)
+             (app list*->dw history))
+       (define expected-balance (transactions->balance history))
+       (unless (= expected-balance balance)
+         (error 'account-reader "~a history does not add up to balance, found ~a vs ~a (delta = ~a)"
+                name
+                (exact->inexact balance)
+                (exact->inexact expected-balance)
+                (exact->inexact (- balance expected-balance))))
+       (account name recents  balance date history last-check#)]
+      [_ (error 'A->account "A expression expected, found ~a ~a" x last-check#)])))
 
 #; {S-expression -> [Listof DW]}
 (define (list*->dw x)
@@ -186,7 +183,7 @@
 
 #; {DW -> [List String Date String]}
 (define (dw->list dw)
-  (list (dw-comment dw) (dw-date dw) (number->decimal-string (dw-amount dw))))
+  (list (dw-comment dw) (dw-date dw) (amount->decimal-string (dw-amount dw))))
 
 ;                                     
 ;                                     
