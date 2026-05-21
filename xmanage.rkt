@@ -145,7 +145,10 @@ exec racket -tm "$0" -- ${1+"$@"}
    (λ ()
      ;; create new account, check that it exists and works
      (main "-new" "ttt")
-     (check-equal? (main "ttt" "-b") 0))
+     (check-match (with-output-to-string ;; account-specific help 
+                    (λ ()
+                      (main "ttt" "-b")))
+                  (pregexp "0.00")))
 
    (λ ()
      ;; re-create to trigger failure
