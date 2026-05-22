@@ -3,9 +3,9 @@
 ;; i/o format and functions for reading/writing accounts
 
 (define balanced-account/c
-  (and account? 
+  (and account?
        (flat-named-contract
-        "current balance equals expected balance"
+        "current balance equals sum of transactions"
         (λ (a)
           (= (transactions->balance (account-history a))
              (account-balance a))))))
@@ -119,7 +119,7 @@
     (match x
       [(list (? string? name)
              (app list*->dw recents)
-             (? rational? balance)
+             (amount> balance)
              (? my-date? date)
              (app list*->dw history))
        (define expected-balance (transactions->balance history))
@@ -177,7 +177,7 @@
 (define (account->A x)
   (list (account-name x)
         (map dw->list (account-recents x))
-        (account-balance x)
+        (amount->decimal-string (account-balance x))
         (account-balance-date x)
         (map dw->list (account-history x))))
 
