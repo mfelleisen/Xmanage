@@ -35,7 +35,7 @@ exec racket -tm "$0" -- ${1+"$@"}
 ;                         ;  ;        
 ;                          ;;         
 
-(define USAGE "Usage:")
+(define USAGE "manage")
 
 (define START
   (list #; [List String String ((Natural -> α) Any ...) -> Any]
@@ -45,7 +45,7 @@ exec racket -tm "$0" -- ${1+"$@"}
 
 (define MAN
   (list #; [List String String (Account -> Any)]
-        (list "-h" "to see this account-specific help message" (λ _ (help-msg MAN)))
+        (list "-h" "to see this account-specific help message" (λ _ (list '_ (λ _ (help-msg MAN)))))
         (list "-d" "<num> <coment> for deposits"               deposit)
         (list "-w" "<num> <comment> for withdrawals"           withdraw)
         (list "-c" "<num> <comment> for checks"                write-check)
@@ -91,27 +91,41 @@ exec racket -tm "$0" -- ${1+"$@"}
      (ill-formed-command exit-for-testing name any other)]
     [_
      (help-msg ALL)
-     (exit-for-testing 0)]))
+     (exit-for-testing 0)])
+  0)
 
 #; {∀α.[Listof [List String String α]] -> String -> α}
 (define ((action> cmd-list) a)
   (define r (assoc a cmd-list))
   (and r (third r)))
 
+;; ---------------------------------------------------------------------------------------------------
 #; {(Natural -> α) [(Natural -> α) #:rest ANY -> ANY] [Listof Any] -> Any}
 (define (generic-command exit-for-testing action other)
-  (match-define (list _ do) (apply action exit-for-testing other))
-  (do))
+  (with-handlers ([exn:fail? (general void exit-for-testing)])
+    (match-define (list _ do) (apply action exit-for-testing other))
+    (do)))
 
 #; {(Natural -> α) [Account Date #:rest ANY -> ANY] String [Listof Any] -> Any}
 (define (account-specific-command exit-for-testing action name other)
-  (with-handlers ([exn? (λ (xn) xn)])
+  (define account #false)
+  (with-handlers ([exn:fail? (general (λ () (when account [(write account)])) exit-for-testing)])
     (define file-name (does-account-already-exist exit-for-testing name))
-    (define account (with-input-from-file file-name account-reader))
-    (define 2day (today))
-    (update account 2day)
-    (match-define (list r optional-action) (apply action account 2day other))
-    (optional-action)))
+    (set! account     (with-input-from-file file-name account-reader))
+    (define 2day      (today))
+    (set! account     (update account 2day))
+    (define do        (second (apply action account 2day other)))
+    (with-handlers ([exn:fail:filesystem?
+                     (λ (xn) (eprintf "writing modified account failed\n ~a\n" (exn-message xn)) 1)])
+      (do))))
+
+#; {(-> Account) (Natural -> α) -> Exn:Fail -> α}
+(define ((general restore! exit) xn)
+  (eprintf "~a\n" (exn-message xn))
+  (with-handlers ([exn:fail:filesystem? ;; I do not know how to test this failure 
+                   (λ (xn) (eprintf "restoring account failed: ~a\n" (exn-message xn)))])
+    (restore!))
+  (exit 1))
 
 #; {(Natural -> α) String Any [Listof Any] -> α}
 (define (ill-formed-command exit-for-testing name any other)
@@ -126,6 +140,36 @@ exec racket -tm "$0" -- ${1+"$@"}
     (println NOT-EXISTS)
     (exit-for-testing 1))
   file-name)
+
+;; ---------------------------------------------------------------------------------------------------
+(module+ test ;; testing handlers
+
+  #; {Any ... -> Void}
+  ;; raise generic fail exn
+  (define (bad-action . _)
+    (raise (make-exn:fail "ouch" (current-continuation-marks))))
+
+  #; {Any ... -> Void}
+  ;; raise filesystem exn 
+  (define (bad-file-action . _)
+    (list '_
+          (λ ()
+            (raise (make-exn:fail:filesystem "ouch" (current-continuation-marks))))))
+
+  #; {[(Natural -> α) Any ... -> α] Any ... -> Void}
+  ;; check that command fails and returns 1, plus prints a string containing "ouch"
+  (define (check-handler command . other)
+    (check-match 
+     (with-output-to-string
+       (λ ()
+         (parameterize ([current-error-port (current-output-port)])
+           (define rest-args (append other '((others))))
+           (check-equal? (prompt (apply command (λ (x) (control k x)) rest-args)) 1))))
+     (pregexp "ouch")))
+
+  (check-handler account-specific-command bad-action "check")
+  (check-handler account-specific-command bad-file-action "check")
+  (check-handler generic-command bad-action))
 
 ;                                                   
 ;                                                   
@@ -143,51 +187,33 @@ exec racket -tm "$0" -- ${1+"$@"}
 ;                                               ;;  
 
 (module+ test
+  #; {String Any String Any ... -> Void}
+  (define (check-main purpose expected-return expected-msg . others)
+    ; (eprintf "testing ~a\n" purpose)
+    (check-match
+     (with-output-to-string
+       (λ ()
+         (prompt (check-equal? (apply main others  #:exit (λ (x) (control k x))) expected-return))))
+     (pregexp expected-msg)))
+
+  (define TTT "ttt")
   (dynamic-wind ;; an integrated unit test
    (λ ()
      ;; create new account, check that it exists and works
-     (main "-new" "ttt")
-     (check-match (with-output-to-string ;; account-specific help 
-                    (λ ()
-                      (main "ttt" "-b")))
-                  (pregexp "0.00")))
+     (main "-new" TTT)
+     (check-main "TTT has balance 0" 0 "0.00" TTT "-b"))
 
    (λ ()
      ;; re-create to trigger failure
-     (check-match (with-output-to-string
-                    (λ ()
-                      (check-equal? (prompt (main "-new" "ttt" #:exit (λ (x) (control k x)))) 1)))
-                  (pregexp "already exists")))
+     (check-main "don't create account again" 1  "already exists"  "-new" TTT))
    (λ ()
-     (delete-file ".ttt.act")))
-  
-  (check-match (with-output-to-string (λ () (main "-help")))
-               (pregexp USAGE))
+     (delete-file (~a "." TTT ".act"))))
 
-  (check-match (with-output-to-string ;; non-existing account, valid command 
-                 (λ ()
-                   (check-equal? (prompt (main "non-existing" "-b" #:exit (λ (x) (control k x)))) 1)))
-               (pregexp "does not exist"))
+  ;; at this point ".ttt.act" does not exist
 
-  (check-match (with-output-to-string ;; existing account, invalid command 
-                 (λ ()
-                   (check-equal? (prompt (main "check" "-notcom" #:exit (λ (x) (control k x)))) 1)))
-               (pregexp "manage"))
-
-  (check-match (with-output-to-string ;; non-existing account, invalid comand 
-                 (λ ()
-                   (check-equal? (prompt (main "ttt" "-notcom" #:exit (λ (x) (control k x)))) 1)))
-               (pregexp "does not exist"))
-
-
-  (check-match (with-output-to-string ;; ill-formed cmd line 
-                 (λ ()
-                   (check-equal? (prompt (main #:exit (λ (x) (control k x)))) 0)))
-               (pregexp "manage"))
-  
-  (check-match (with-output-to-string ;; account-specific help 
-                 (λ ()
-                   (main "check" "-h")))
-               (pregexp "manage")))
-
-(require SwDev/Debugging/spy)
+  (check-main "generic help" 0 USAGE "-help")
+  (check-main "balance of non existing account" 1 NOT-EXISTS "non-existing" "-b")
+  (check-main "bad command for existing account" 1 USAGE "check" "-notcom")
+  (check-main "bad command for non-existing account" 1 NOT-EXISTS "ttt" "-notcom")
+  (check-main "ill-formed command line" 0 USAGE "")
+  (check-main "account-specific help" 0 USAGE "check" "-h"))

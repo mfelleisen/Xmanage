@@ -14,8 +14,11 @@
   [name->path
    (->* (string?) (#:kind string?) path?)]
 
+  [write 
+   (-> account? (-> void?))]
+
   [update
-   (-> account? my-date? void?)]
+   (-> account? my-date? account?)]
 
   [new-account/2
    (-> procedure? string? (action/c account?))]
@@ -220,15 +223,16 @@
     (set-account-recents! account '())
     (set-account-history! account history)
     (set-account-balance-date! account action-date)
-    (set-account-balance! account balance)))
+    (set-account-balance! account balance))
+  account)
 
 (module+ test
   (let () ;; test update 
     (define Acopied  (struct-copy account A+100chk))
     (define nextdate '(2026 8 20))
     (define exp (account "checking" '() 100  nextdate (account-recents A+100chk) 0))
-    (update Acopied nextdate)
-    (check-equal? Acopied exp)))
+    (check-equal? (update Acopied nextdate) exp "update: check return")
+    (check-equal? Acopied exp "update: check effect")))
 
 
   
