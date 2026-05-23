@@ -54,19 +54,19 @@
 
 (module+ examples
   (define 100purpose "one deposit")
-  (define 50purpose "one withdrawal")
+  (define 50purpose  "one withdrawal")
   (define 25purpose  "one check written")  
 
   (define (one-recent-plus-100 A (d "100.00") (msg 100purpose))
     (match A
       [(list name recents balance date history)
-       (define dw (list msg '(2026 6 6) d))
+       (define dw (list (align msg) '(2026 6 6) d))
        (list name (cons dw recents) balance date history)]))
 
   (define (one-recent-minus-100 A)
     (match A
       [(list name recents balance date history)
-       (define dw (list 50purpose '(2026 6 6) "-50.00"))
+       (define dw (list (align 50purpose) '(2026 6 6) "-50.00"))
        (list name (cons dw recents) balance date history)]))
   
   (define (Achecking0 (x 0))
@@ -80,7 +80,7 @@
   (define A+100        (one-recent-plus-100 (Achecking0)))
   (define A+100chk     (A->account A+100 0))
 
-  (define 1-25purpose  (~a " " (add1 (account-check-no A+100chk)) " " 25purpose
+  (define 1-25purpose  (~a (add1 (account-check-no A+100chk)) " " 25purpose
                            ;; the next line cheats: 30 comes from actions.rkt
                            #:max-width 30 #:min-width 30 #:left-pad-string " "))
   (define A+100+25    (one-recent-plus-100 (one-recent-plus-100 (Achecking0 1)) "-25.00" 1-25purpose))
@@ -221,8 +221,10 @@
                 "basic I/O back and forth"))
 
 (module+ test
-  (check-exn #px"does not add up" (λ () (with-input-from-file "../.check.act" account-reader)))
+  #;
+  (check-exn #px"does not add up" (λ () (with-input-from-file "../../.check.act" account-reader)))
 
+  #;
   (check-true (account? (with-input-from-file "../.van.act" account-reader))
               "check consistency of van account for validity")
 

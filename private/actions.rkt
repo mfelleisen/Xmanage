@@ -49,8 +49,6 @@
   (require rackunit))
 
 ;; ---------------------------------------------------------------------------------------------------
-(define COMMENT-MAX 30)
-
 ;                                                   
 ;                                                   
 ;            ;                                      
@@ -140,7 +138,7 @@
        (error 'make-d/w "amount expected, found ~a" a)]))
   (define history (account-recents account))
   (define delta   (how 0 amount))
-  (define action  (dw (string-join msg) date delta))
+  (define action  (dw (align (string-join msg)) date delta))
   (set-account-recents! account (cons action history))
   (list account (write account)))
 
@@ -166,16 +164,9 @@
 (define (create-check acc purpose)
   (define x (+ (account-check-no acc) 1))
   (set-account-check-no! acc x)
-  (~a " " x " " purpose #:max-width COMMENT-MAX #:min-width COMMENT-MAX #:left-pad-string " "))
+  (~a x " " purpose))
 
 ;; ---------------------------------------------------------------------------------------------------
-(module+ test ;; testing basic comment property
-  (define LARGE (make-string COMMENT-MAX #\space))
-  (check-equal? (string-length (create-check (struct-copy account Achk) LARGE)) COMMENT-MAX "t")
-
-  (check-equal? (string-length (create-check (struct-copy account Achk) " Claudia")) COMMENT-MAX)
-  (check-equal? (string-length (create-check (struct-copy account A+100chk) " Claudia")) COMMENT-MAX)
-  (check-equal? (string-length (create-check (struct-copy account A+100-50chk) " C")) COMMENT-MAX))
 
 ;                                                   
 ;   ;                                               

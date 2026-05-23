@@ -35,7 +35,11 @@
    (-> any/c boolean?)]
 
   [amount->decimal-string
-   (-> rational? string-amount)]))
+   (-> rational? string-amount)]
+
+  (align
+   (-> (and/c string? shorter-than-COMMENT-MAX)
+       (and/c string? (compose (=/c COMMENT-MAX) string-length))))))
 
 (provide
  ;; match expander
@@ -87,6 +91,15 @@
       (eprintf "bad amount ~a\n" amount))
   (string->number amount))
 
+(module+ test
+  (check-equal? (string->number/2 "1.23") 1.23)
+  (check-match (with-output-to-string
+                 (λ ()
+                   (parameterize ([current-error-port (current-output-port)])
+                     (check-equal? (string->number/2 "1.234") 1.234))))
+               (pregexp "bad")))
+
+;; ---------------------------------------------------------------------------------------------------
 (define (amount->decimal-string a)
   (~r a #:precision '(= 2)))
     
@@ -137,6 +150,39 @@
     (define balance+ (op balance (dw-amount h)))
     (define dw+      (list h balance+))
     (values balance+ (cons dw+ r))))
+
+;                                                   
+;                                                   
+;                                                   
+;                                                   
+;   ;;;;   ;   ;   ;;;;  ;;;;    ;;;    ;;;    ;;;  
+;   ;; ;;  ;   ;   ;;  ; ;; ;;  ;; ;;  ;   ;  ;;  ; 
+;   ;   ;  ;   ;   ;     ;   ;  ;   ;  ;      ;   ;;
+;   ;   ;  ;   ;   ;     ;   ;  ;   ;   ;;;   ;;;;;;
+;   ;   ;  ;   ;   ;     ;   ;  ;   ;      ;  ;     
+;   ;; ;;  ;   ;   ;     ;; ;;  ;; ;;  ;   ;  ;     
+;   ;;;;    ;;;;   ;     ;;;;    ;;;    ;;;    ;;;; 
+;   ;                    ;                          
+;   ;                    ;                          
+;   ;                    ;                          
+
+(define COMMENT-MAX 30)
+
+#; {String -> Boolean}
+(define shorter-than-COMMENT-MAX
+  (flat-named-contract "short purpose comment" (λ (s) (<= (string-length s) COMMENT-MAX))))
+
+#; {String CheckNoString -> String}
+(define (align purpose (x ""))
+  (~a " " x " " purpose #:max-width COMMENT-MAX #:min-width COMMENT-MAX #:left-pad-string " "))
+
+(module+ test ;; testing basic comment property
+  (define LARGE (make-string COMMENT-MAX #\space))
+  (check-equal? (string-length (align LARGE)) COMMENT-MAX "t")
+
+  (check-equal? (string-length (align " Claudia")) COMMENT-MAX)
+  (check-equal? (string-length (align " Claudia")) COMMENT-MAX)
+  (check-equal? (string-length (align " C")) COMMENT-MAX))
 
 ;                                     
 ;                                     
