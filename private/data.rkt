@@ -47,7 +47,7 @@
   (provide checking0))
 
 ;; -------------------------------------------------------------------------------------------------
-(require "../Xmanaged/date.rkt")
+(require Xmanage/private/date)
 
 (module+ test
   (require (submod ".."))

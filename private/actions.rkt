@@ -37,15 +37,15 @@
    (->* (account? my-date?) () #:rest any/c (action/c any/c))]))
 
 ;; ---------------------------------------------------------------------------------------------------
-(require "../Xmanaged/data.rkt")
-(require "../Xmanaged/date.rkt")
-(require "../Xmanaged/file-io.rkt")
+(require Xmanage/private/date)
+(require Xmanage/private/data)
+(require Xmanage/private/file-io)
 (require racket/control)
 (require (only-in xml xexpr->xml display-xml/content))
 
 (module+ test
   (require (submod ".."))
-  (require (submod "../Xmanaged/file-io.rkt" examples))
+  (require (submod Xmanage/private/file-io examples))
   (require rackunit))
 
 ;; ---------------------------------------------------------------------------------------------------
@@ -70,15 +70,15 @@
 
 (define (name->path name #:kind (proper-or-html #false))
   (define file-name (if proper-or-html (~a name "." proper-or-html) (~a "." name ".act")))
-  (build-path HOME "Private" "Accounts" "Xmanaged" file-name))
+  (build-path HOME "Private" "Accounts" "Xmanage" file-name))
 
 (define [(write account)]
   (define file-name (name->path (account-name account)))
   (with-output-to-file file-name #:exists 'replace (λ () (account-writer account))))
 
 (module+ test
-  (check-equal? (name->path "name") (build-path HOME "Private" "Accounts" "Xmanaged" ".name.act"))
-  (check-equal? (name->path "n" #:kind "h") (build-path HOME "Private" "Accounts" "Xmanaged" "n.h"))
+  (check-equal? (name->path "name") (build-path HOME "Private" "Accounts" "Xmanage" ".name.act"))
+  (check-equal? (name->path "n" #:kind "h") (build-path HOME "Private" "Accounts" "Xmanage" "n.h"))
   
   (let ([file-name (name->path (account-name checking))])
     (dynamic-wind

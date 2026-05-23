@@ -22,11 +22,11 @@
   (provide (all-defined-out)))
 
 ;; -------------------------------------------------------------------------------------------------
-(require "../Xmanaged/date.rkt")
-(require "../Xmanaged/data.rkt")
+(require Xmanage/private/date)
+(require Xmanage/private/data)
 
 (module+ examples
-  (require (submod "../Xmanaged/data.rkt" examples))
+  (require (submod Xmanage/private/data examples))
   (provide (all-defined-out)))
 
 (module+ test

@@ -8,10 +8,10 @@ exec racket -tm "$0" -- ${1+"$@"}
 
 (provide main)
 
-(require "date.rkt")
-(require "data.rkt")
-(require "file-io.rkt")
-(require "actions.rkt")
+(require Xmanage/private/date)
+(require Xmanage/private/data)
+(require Xmanage/private/file-io)
+(require Xmanage/private/actions)
 
 (module+ test
   (require racket/control)
