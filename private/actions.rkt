@@ -30,7 +30,7 @@
    (->* (account? my-date?) () #:rest (listof string?) (action/c account?))]
   [write-check
    ;; consumes commad-line arguments to record a check at amount
-   (->* (account? my-date? string? string?) () (action/c account?))]
+   (->* (account? my-date? string? string?) () #:rest (listof string?) (action/c account?))]
   [show-balance
    (->* (account? my-date?) () #:rest any/c (action/c amount?))]
   [to-html
@@ -153,20 +153,21 @@
 ;; effect: record a non-check withdrawl
 (define withdraw (make-d/w -))
 
-#; (Account Date Amount Comment -> Void)
+#; (Account Date Amount String ... -> Void)
 ;; EFFECT confirm check writing action with a print to console 
-(define (write-check account date amount purpose)
-  (match-define (list account+ do) (withdraw account date amount (create-check account purpose)))
+(define (write-check account date amount . purpose)
+  (define the-check (create-check account (string-join purpose)))
+  (match-define (list account+ do) (withdraw account date amount the-check))
   (define (ackn) (printf "Check No. ~a Today: ~a~n" (account-check-no account) (today)))
   (list account+ (λ () (do) (ackn))))
 
 #; [Account String -> String]
 ;; create entry for a check in `acc` 
 ;; EFFECT increase check number in account 
-(define (create-check acc comment)
+(define (create-check acc purpose)
   (define x (+ (account-check-no acc) 1))
   (set-account-check-no! acc x)
-  (~a " " x " " comment #:max-width COMMENT-MAX #:min-width COMMENT-MAX #:left-pad-string " "))
+  (~a " " x " " purpose #:max-width COMMENT-MAX #:min-width COMMENT-MAX #:left-pad-string " "))
 
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; testing basic comment property
@@ -194,7 +195,7 @@
 
 (define (show-balance a _date . _others)
   (define b (+ (transactions->balance (account-recents a)) (account-balance a)))
-  (list b (λ () (printf "~a\n" (amount->decimal-string b)))))
+  (list b (λ () (printf "Current balance: ~a\n" (amount->decimal-string b)))))
 
 ;                                            
 ;                     ;                      
@@ -484,19 +485,22 @@
 
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; new account
+  (define TTT "ttt")
+
   (dynamic-wind
    (λ ()
-     (define a (run-new-account/2 "ttt"))
+     (define a (run-new-account/2 TTT))
      (check-equal? (run show-balance a (today)) 0)
-     (check-equal? (with-output-to-string (λ () [(second (show-balance a (today)))])) "0.00\n"))
+     (check-equal? (with-output-to-string (λ () [(second (show-balance a (today)))]))
+                   "Current balance: 0.00\n"))
 
    (λ ()
      ;; re-create to trigger failure
-     (check-match (with-output-to-string (λ () (check-equal? (run-new-account/2 "ttt") 1)))
+     (check-match (with-output-to-string (λ () (check-equal? (run-new-account/2 TTT) 1)))
                   (pregexp ALREADY-EXISTS)))
    
    (λ ()
-     (delete-file ".ttt.act"))))
+     (delete-file (name->path TTT)))))
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; testing deposits, withdrawals, and check writing
   (define 2day '(2026 6 6))
