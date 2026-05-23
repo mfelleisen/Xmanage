@@ -90,9 +90,8 @@ exec racket -tm "$0" -- ${1+"$@"}
     [(list* name any other)
      (ill-formed-command exit-for-testing name any other)]
     [_
-     (help-msg ALL)
-     (exit-for-testing 0)])
-  0)
+     (help-msg ALL)])
+  (exit-for-testing 0))
 
 #; {∀α.[Listof [List String String α]] -> String -> α}
 (define ((action> cmd-list) a)
@@ -188,19 +187,19 @@ exec racket -tm "$0" -- ${1+"$@"}
 
 (module+ test
   #; {String Any String Any ... -> Void}
-  (define (check-main purpose expected-return expected-msg . others)
+  (define (check-main purpose expected expected-msg . others)
     ; (eprintf "testing ~a\n" purpose)
     (check-match
      (with-output-to-string
        (λ ()
-         (prompt (check-equal? (apply main others  #:exit (λ (x) (control k x))) expected-return))))
+         (check-equal? (prompt (apply main others  #:exit (λ (x) (control k x)))) expected purpose)))
      (pregexp expected-msg)))
 
   (define TTT "ttt")
   (dynamic-wind ;; an integrated unit test
    (λ ()
      ;; create new account, check that it exists and works
-     (main "-new" TTT)
+     (check-main "make TTT" 0 "" "-new" TTT)
      (check-main "TTT has balance 0" 0 "0.00" TTT "-b"))
 
    (λ ()
