@@ -69,22 +69,23 @@
 ;                                                   
 ;                                                   
 
-(define amount? rational?)
+(define (amount? x)
+  (rational? x))
 
 (define-match-expander amount>
   (λ (stx)
     (syntax-case stx ()
-      [(_ x) #'(app string->number/2 (and amount? x))])))
+      [(_ x) #'(app string->number/2 (? amount? x))])))
+
+(define-match-expander argv-amount>
+  (λ (stx)
+    (syntax-case stx ()
+      [(_ x) #'(app string->number/2 (and (? amount?) (? positive? x)))])))
 
 (define (string->number/2 amount)
   (when (regexp-match #px"\\.\\d\\d\\d" (~a amount))
       (eprintf "bad amount ~a\n" amount))
   (string->number amount))
-
-(define-match-expander argv-amount>
-  (λ (stx)
-    (syntax-case stx ()
-      [(_ x) #'(app string->number (and amount? positive? x))])))
 
 (define (amount->decimal-string a)
   (~r a #:precision '(= 2)))
