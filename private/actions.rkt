@@ -24,10 +24,10 @@
    (-> procedure? string? (action/c account?))]
   [deposit
    ;; consumes command-line arguments to deposit amount 
-   (->* (account? my-date?) () #:rest (listof string?) (action/c account?))]
+   (->* (account? my-date? string?) () #:rest (listof string?) (action/c account?))]
   [withdraw
    ;; consumes commad-line arguments to withdraw amount
-   (->* (account? my-date?) () #:rest (listof string?) (action/c account?))]
+   (->* (account? my-date? string?) () #:rest (listof string?) (action/c account?))]
   [write-check
    ;; consumes commad-line arguments to record a check at amount
    (->* (account? my-date? string? string?) () #:rest (listof string?) (action/c account?))]
@@ -132,16 +132,15 @@
 ;                                                                                                    
 
 #; {{U + -} -> (Account Date Amount Any ... -> Account)}
-(define ((make-d/w how) account date  . other)
-  (define-values (amount msg)
-    (match other
-      [(list (argv-amount> a) (? string? m))
-       (values a m)]
+(define ((make-d/w how) account date  a . msg)
+  (define amount
+    (match a
+      [(argv-amount> b) b]
       [_
-       (error 'make-d/w "(amount and purpose) expected, found ~a" other)]))
+       (error 'make-d/w "amount expected, found ~a" a)]))
   (define history (account-recents account))
   (define delta   (how 0 amount))
-  (define action  (dw msg date delta))
+  (define action  (dw (string-join msg) date delta))
   (set-account-recents! account (cons action history))
   (list account (write account)))
 
@@ -522,7 +521,8 @@
 
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; error checking
-  (check-exn #px"\\(amount" (λ () (run deposit (struct-copy account Achk) 2day "10" "6" 100purpose))))
+  (check-exn #px"amount expected"
+             (λ () (run deposit (struct-copy account Achk) 2day "1h" "6" 100purpose))))
 
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; tests for balance
