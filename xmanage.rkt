@@ -9,7 +9,6 @@ exec racket -tm "$0" -- ${1+"$@"}
 (provide main)
 
 (require Xmanage/private/date)
-(require Xmanage/private/data)
 (require Xmanage/private/file-io)
 (require Xmanage/private/actions)
 
