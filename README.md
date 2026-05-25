@@ -46,5 +46,20 @@ Most modules come with reasonably simple contracts, often just
 type-like, sometimes a bit more. 
 
 
+## Bugs 
+
+If you study the log file, you will see that coverage plus tests still
+don't eliminate all bugs. 
+
+## TODO 
+
+Now that I have cleaned up the script (which definitely grew
+organically into a jungle over 35 years) I have improved protection
+against manual editing mistakes and I have cleaned up some features. 
+
+And now I want to add features. "Second system" syndrome. 
+
+I will also create a script to create something similar to the sample
+account for measuring performance. 
 
 

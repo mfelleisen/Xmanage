@@ -41,6 +41,7 @@
 (require Xmanage/private/data)
 (require Xmanage/private/file-io)
 (require racket/control)
+(require racket/runtime-path)
 (require (only-in xml xexpr->xml display-xml/content))
 
 (module+ test
@@ -246,6 +247,8 @@
 ;                                            
 ;                                            
 
+(define #;-runtime-path CHECKMARK "resources/check-mark.png")
+
 #; {Account Date -> Void}
 (define (to-html a my-dste #:open (open "open") . _other)
   (define page:xml (xexpr->xml (account-to-html a)))
@@ -357,7 +360,7 @@
   (match-define `(,year ,month ,day) (map (lambda (x) (~r x #:min-width 2 #:pad-string "0")) d))
   (string-append month " " day " " year))
 
-(define check-mark '(img ((src "check-mark.png") (width "22") (alt "yes"))))
+(define check-mark `(img ((src ,CHECKMARK) (width "22") (alt "yes"))))
 
 (define ((make-td where) content (w #false))
   (if (boolean? w)
@@ -400,7 +403,7 @@
                    ((style "background-color:white"))
                    (td ,@(td-left  "06 06 2026"))
                    (td ,@(td-right " "))
-                   (td ,@(td-center `(img ((src "check-mark.png") (width "22") (alt "yes")))))
+                   (td ,@(td-center `(img ((src ,CHECKMARK) (width "22") (alt "yes")))))
                    (td ,@(td-left "one deposit"))
                    (td ,@(td-right ""))
                    (td ,@(td-right "100.00"))
@@ -519,7 +522,7 @@
                   (~a (path->string f) "\n")))
 
   (let ([a (struct-copy account A+100chk)])
-    (check-exn #px"amount expected" (λ () (run write-check a 2day "0.00" 25purpose)))
+    (check-exn #px"amount expected" (λ () (run write-check a 2day "-1.00" 25purpose)))
     (check-equal? a A+100chk "the account remains unmodified due to bad amount")))
 
 ;; ---------------------------------------------------------------------------------------------------
