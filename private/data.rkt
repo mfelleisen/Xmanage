@@ -84,7 +84,7 @@
 (define-match-expander argv-amount>
   (λ (stx)
     (syntax-case stx ()
-      [(_ x) #'(app string->number/2 (and (? amount?) (? positive? x)))])))
+      [(_ x) #'(app string->number/2 (and (? amount?) (? (>=/c 0) x)))])))
 
 (define (string->number/2 amount)
   (when (regexp-match #px"\\.\\d\\d\\d" (~a amount))
