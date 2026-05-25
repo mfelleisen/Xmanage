@@ -219,6 +219,17 @@ exec racket -tm "$0" -- ${1+"$@"}
      (check-main "bad check/withdrawal amount" 1 "amount expected" TTT "-c" "0.00" "void"))
    (λ ()
      (delete-file (~a "." TTT ".act"))))
+
+  ;; -------------------------------------------------------------------------------------------------
+  (dynamic-wind ;; an integrated unit test: write a check without purpose statement
+   (λ ()
+     ;; create new account, check that it exists and works
+     (check-main "make TTT" 0 "" "-new" TTT))
+   (λ ()
+     ;; re-create to trigger failure
+     (check-main "bad check/withdrawal amount" 1 "amount expected" TTT "-c" "0.00"))
+   (λ ()
+     (delete-file (~a "." TTT ".act"))))
   
   ;; -------------------------------------------------------------------------------------------------
   ;; at this point ".ttt.act" does not exist

@@ -30,7 +30,7 @@
    (->* (account? my-date? string?) () #:rest (listof string?) (action/c account?))]
   [write-check
    ;; consumes commad-line arguments to record a check at amount
-   (->* (account? my-date? string? string?) () #:rest (listof string?) (action/c account?))]
+   (->* (account? my-date? string?) () #:rest (listof string?) (action/c account?))]
   [show-balance
    (->* (account? my-date?) () #:rest any/c (action/c amount?))]
   [to-html
