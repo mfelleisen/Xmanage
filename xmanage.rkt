@@ -215,7 +215,6 @@ exec racket -tm "$0" -- ${1+"$@"}
      ;; create new account, check that it exists and works
      (check-main "make TTT" 0 "" "-new" TTT))
    (λ ()
-     ;; re-create to trigger failure
      (check-main "bad check/withdrawal amount" 1 "amount expected" TTT "-c" "0.00" "void"))
    (λ ()
      (delete-file (~a "." TTT ".act"))))
@@ -226,8 +225,11 @@ exec racket -tm "$0" -- ${1+"$@"}
      ;; create new account, check that it exists and works
      (check-main "make TTT" 0 "" "-new" TTT))
    (λ ()
-     ;; re-create to trigger failure
-     (check-main "no purpose statement" 0 "Check No." TTT "-c" "1.00"))
+     (define op (open-output-string))
+     (parameterize ([current-error-port op])
+       (check-main "no purpose statement" 0 "Check No." TTT "-c" "1.00"))
+     (check-match (get-output-string op)
+                  (pregexp "warning")))
    (λ ()
      (delete-file (~a "." TTT ".act"))))
   

@@ -164,7 +164,11 @@
 ;; EFFECT increase check number in account 
 (define (create-check acc purpose)
   (define x (+ (account-check-no acc) 1))
-  (list (~a x " " purpose) (lambda () (set-account-check-no! acc x))))
+  (define !
+    (if (equal? (string-trim purpose) "")
+        (λ () (eprintf "warning: the purpose statement is missing\n"))
+        void))
+  (list (~a x " " purpose) (lambda () (!) (set-account-check-no! acc x))))
 
 ;; ---------------------------------------------------------------------------------------------------
 
