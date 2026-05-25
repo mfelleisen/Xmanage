@@ -227,7 +227,7 @@ exec racket -tm "$0" -- ${1+"$@"}
      (check-main "make TTT" 0 "" "-new" TTT))
    (λ ()
      ;; re-create to trigger failure
-     (check-main "no purpose statement" 1 "amount expected" TTT "-c" "0.00"))
+     (check-main "no purpose statement" 0 "Check No." TTT "-c" "1.00"))
    (λ ()
      (delete-file (~a "." TTT ".act"))))
   

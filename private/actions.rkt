@@ -157,10 +157,7 @@
   (match-define (list account+  do) (withdraw account date amount the-check))
   (define (ackn) (printf "Check No. ~a Today: ~a~n" (account-check-no account) (today)))
   ;; increment check# only when ready to write a successful subtraction
-
-  (bump)
-  
-  (list account+ (λ () (do) (ackn))))
+  (list account+ (λ () (bump) (do) (ackn))))
 
 #; [Account String -> String]
 ;; create entry for a check in `acc` 
@@ -500,7 +497,11 @@
 
   (check-equal? (run deposit (struct-copy account Achk) 2day "100" 100purpose) A+100chk)
   (check-equal? (run withdraw (struct-copy account A+100chk) 2day "50" 50purpose) A+100-50chk)
-  (check-equal? (run write-check (struct-copy account A+100chk) 2day "25" 25purpose) A+100+25chk))
+  (let ([a (struct-copy account A+100+25chk)])
+    ;; the effect is delayed until `main` allows it
+    (set-account-check-no! a 0)
+    (check-equal? (run write-check (struct-copy account A+100chk) 2day "25" 25purpose) a)))
+                
 
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; check that it creates the account file and prints confirmation message to STDOUT 
