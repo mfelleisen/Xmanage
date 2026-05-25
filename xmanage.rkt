@@ -100,26 +100,26 @@ exec racket -tm "$0" -- ${1+"$@"}
 ;; ---------------------------------------------------------------------------------------------------
 #; {(Natural -> α) [(Natural -> α) #:rest ANY -> ANY] [Listof Any] -> Any}
 (define (generic-command exit-for-testing action other)
-  (with-handlers ([exn:fail? (general void exit-for-testing)])
+  (with-handlers ([exn? (general void exit-for-testing)])
     (match-define (list _ do) (apply action exit-for-testing other))
     (do)))
 
 #; {(Natural -> α) [Account Date #:rest ANY -> ANY] String [Listof Any] -> Any}
 (define (account-specific-command exit-for-testing action name other)
   (define account #false)
-  (with-handlers ([exn:fail? (general (λ () (when account [(write account)])) exit-for-testing)])
+  (with-handlers ([exn? (general (λ () (when account [(write account)])) exit-for-testing)])
     (define file-name (does-account-already-exist exit-for-testing name))
     (set! account     (with-input-from-file file-name account-reader))
     (define 2day      (today))
     (set! account     (update account 2day))
     (define do        (second (apply action account 2day other)))
     (with-handlers ([exn:fail:filesystem?
-                     (λ (xn) (eprintf "writing modified account failed\n ~a\n" (exn-message xn)) 1)])
+		     (λ (xn) (eprintf "writing modified account failed\n ~a\n" (exn-message xn)) 1)])
       (do))))
 
 #; {(-> Account) (Natural -> α) -> Exn:Fail -> α}
 (define ((general restore! exit) xn)
-  (eprintf "~a\n" (exn-message xn))
+  (printf "~a\n" (exn-message xn))
   (with-handlers ([exn:fail:filesystem? ;; I do not know how to test this failure 
                    (λ (xn) (eprintf "restoring account failed: ~a\n" (exn-message xn)))])
     (restore!))
@@ -195,7 +195,9 @@ exec racket -tm "$0" -- ${1+"$@"}
      (pregexp expected-msg)))
 
   (define TTT "ttt")
-  (dynamic-wind ;; an integrated unit test
+
+  ;; -------------------------------------------------------------------------------------------------
+  (dynamic-wind ;; an integrated unit test: create same account twice
    (λ ()
      ;; create new account, check that it exists and works
      (check-main "make TTT" 0 "" "-new" TTT)
@@ -207,6 +209,18 @@ exec racket -tm "$0" -- ${1+"$@"}
    (λ ()
      (delete-file (~a "." TTT ".act"))))
 
+  ;; -------------------------------------------------------------------------------------------------
+  (dynamic-wind ;; an integrated unit test: write a check for 0.00 
+   (λ ()
+     ;; create new account, check that it exists and works
+     (check-main "make TTT" 0 "" "-new" TTT))
+   (λ ()
+     ;; re-create to trigger failure
+     (check-main "bad check/withdrawal amount" 1 "amount expected" TTT "-c" "0.00" "void"))
+   (λ ()
+     (delete-file (~a "." TTT ".act"))))
+  
+  ;; -------------------------------------------------------------------------------------------------
   ;; at this point ".ttt.act" does not exist
 
   (check-main "generic help" 0 USAGE "-help")

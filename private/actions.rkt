@@ -135,7 +135,7 @@
     (match a
       [(argv-amount> b) b]
       [_
-       (error 'make-d/w "amount expected, found ~a" a)]))
+       (error 'xmanage "amount expected, found ~a" a)]))
   (define history (account-recents account))
   (define delta   (how 0 amount))
   (define action  (dw (align (string-join msg)) date delta))
@@ -153,9 +153,13 @@
 #; (Account Date Amount String ... -> Void)
 ;; EFFECT confirm check writing action with a print to console 
 (define (write-check account date amount . purpose)
-  (define the-check (create-check account (string-join purpose)))
-  (match-define (list account+ do) (withdraw account date amount the-check))
+  (match-define (list the-check bump) (create-check account (string-join purpose)))
+  (match-define (list account+  do) (withdraw account date amount the-check))
   (define (ackn) (printf "Check No. ~a Today: ~a~n" (account-check-no account) (today)))
+  ;; increment check# only when ready to write a successful subtraction
+
+  (bump)
+  
   (list account+ (λ () (do) (ackn))))
 
 #; [Account String -> String]
@@ -163,8 +167,7 @@
 ;; EFFECT increase check number in account 
 (define (create-check acc purpose)
   (define x (+ (account-check-no acc) 1))
-  (set-account-check-no! acc x)
-  (~a x " " purpose))
+  (list (~a x " " purpose) (lambda () (set-account-check-no! acc x))))
 
 ;; ---------------------------------------------------------------------------------------------------
 
@@ -505,10 +508,14 @@
                (pregexp "Check No.")))
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; check that it creates the HTML file 
-  (define a (struct-copy account A+100chk))
-  (define f (name->path (account-name a) #:kind "html"))
-  (check-equal? (run-for-effect (λ x (apply to-html/t #:open "ls" x)) a 2day #:file-to-be-created f)
-                (~a (path->string f) "\n")))
+  (let* ((a (struct-copy account A+100chk))
+         (f (name->path (account-name a) #:kind "html")))
+    (check-equal? (run-for-effect (λ x (apply to-html/t #:open "ls" x)) a 2day #:file-to-be-created f)
+                  (~a (path->string f) "\n")))
+
+  (let ([a (struct-copy account A+100chk)])
+    (check-exn #px"amount expected" (λ () (run write-check a 2day "0.00" 25purpose)))
+    (check-equal? a A+100chk "the account remains unmodified due to bad amount")))
 
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; error checking
