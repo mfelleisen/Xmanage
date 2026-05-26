@@ -33,6 +33,9 @@ which is run under protection of a suitable exception handler.
 - file-io.rkt implements the parsing of files into accounts and
   writing of accounts to files. 
 
+- html.rkt provides a rendering function, turning an account into an
+  HTML-ish "spreadsheet". 
+
 - date.rkt a stupid rendering of dates 
 
 ## Unit Tests 
