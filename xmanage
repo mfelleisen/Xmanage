@@ -119,7 +119,7 @@ exec racket -tm "$0" -- ${1+"$@"}
 
 #; {(-> Account) (Natural -> α) -> Exn:Fail -> α}
 (define ((general restore! exit) xn)
-  (printf "~a\n" (exn-message xn))
+  (printf "Exception caught: ~a\n" (exn-message xn))
   (with-handlers ([exn:fail:filesystem? ;; I do not know how to test this failure 
                    (λ (xn) (eprintf "restoring account failed: ~a\n" (exn-message xn)))])
     (restore!))
