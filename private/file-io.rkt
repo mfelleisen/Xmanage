@@ -89,8 +89,8 @@
   (define A+100-50     (one-recent-minus-100 (one-recent-plus-100 (Achecking0))))
   (define A+100-50chk  (A->account A+100-50 0))
 
-  (define chase-chk
-    (with-input-from-file "../.chase.act" (λ () (account-reader)))))
+  (define sample.act   "../.sample.act")
+  (define bad-sample   "../.bad-sample.act"))
 
 ;                                     
 ;                                     
@@ -221,12 +221,7 @@
                 "basic I/O back and forth"))
 
 (module+ test
-  #;
-  (check-exn #px"does not add up" (λ () (with-input-from-file "../../.check.act" account-reader)))
+  (check-exn #px"does not add up" (λ () (with-input-from-file bad-sample account-reader)))
 
-  #;
-  (check-true (account? (with-input-from-file "../.van.act" account-reader))
-              "check consistency of van account for validity")
-
-  (check-true (account? (with-input-from-file "../.chase.act" account-reader))
-              "check consistency of chase account for validity"))
+  (check-true (account? (with-input-from-file sample.act account-reader))
+              "check consistency of sample account for validity"))
