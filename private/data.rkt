@@ -14,7 +14,8 @@
      [balance      amount?]
      [balance-date my-date?]
      [history      (listof dw?)]
-     [check-no     natural?]))
+     [check-no     natural?]
+     [special      [listof (list/c string? amount?)]]))
 
   (struct dw
     ([comment string?]
@@ -84,7 +85,7 @@
 (define-match-expander argv-amount>
   (λ (stx)
     (syntax-case stx ()
-      [(_ x) #'(app string->number/2 (and (? amount?) (? (>=/c 0) x)))])))
+      [(_ x) #'(app string->number/2 (and (? amount?) (? (>/c 0) x)))])))
 
 (define (string->number/2 amount)
   (when (regexp-match #px"\\.\\d\\d\\d" (~a amount))
@@ -125,19 +126,19 @@
 ;                                                          
 ;                                                          
   
-(struct account (name recents balance balance-date history check-no) #:transparent #:mutable)
+(struct account (name recents balance balance-date history check-no special) #:transparent #:mutable)
 (struct dw (comment date amount) #:transparent #:mutable)
 #; {type Account = (account String [Listof T] Rational Date [Listof T] Natural)}
 #; {type DW      = (dw String Date PositiveRational)}
 
 (module+ examples
   (define [checking0 (first-check-no 0)]
-    (account "checking" '() 0 (today) '() first-check-no)))
+    (account "checking" '() 0 (today) '() first-check-no '())))
 
 #; {String String -> Void}
 ;; EFFECT create a new account file 
 (define (new-account name #:first-check# (last 0))
-  (account name '() 0 (today) '() last))
+  (account name '() 0 (today) '() last '[]))
 
 #; {[List DW] -> Number}
 (define (transactions->balance dw*)

@@ -6,6 +6,10 @@ exec racket -tm "$0" -- ${1+"$@"}
 
 ;; main for managing checking accounts 
 
+;; TODO:
+;; -- `-new` should be able to consume the first check number 
+;; -- automatic deductions 
+
 (provide main)
 
 (require Xmanage/private/date)
@@ -15,9 +19,6 @@ exec racket -tm "$0" -- ${1+"$@"}
 (module+ test
   (require racket/control)
   (require rackunit))
-
-;; TODO:
-;; -- `-new` should be able to consume the first check number 
 
 ;                                     
 ;                                     
@@ -103,6 +104,8 @@ exec racket -tm "$0" -- ${1+"$@"}
   (with-handlers ([exn? (general void exit-for-testing)])
     (match-define (list _ do) (apply action exit-for-testing other))
     (do)))
+
+(require SwDev/Debugging/spy)
 
 #; {(Natural -> α) [Account Date #:rest ANY -> ANY] String [Listof Any] -> Any}
 (define (account-specific-command exit-for-testing action name other)

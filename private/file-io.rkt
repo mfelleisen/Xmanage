@@ -60,13 +60,13 @@
   (define (one-recent-plus-100 A (d "100.00") (msg 100purpose))
     (match A
       [(list name recents balance date history)
-       (define dw (list (align msg) '(2026 6 6) d))
+       (define dw (list (align msg) '(2026 10 4) d))
        (list name (cons dw recents) balance date history)]))
 
   (define (one-recent-minus-100 A)
     (match A
       [(list name recents balance date history)
-       (define dw (list (align 50purpose) '(2026 6 6) "-50.00"))
+       (define dw (list (align 50purpose) '(2026 10 4) "-50.00"))
        (list name (cons dw recents) balance date history)]))
   
   (define (Achecking0 (x 0))
@@ -111,10 +111,19 @@
 ;; EFFECT read an A-expression from port
 ;; EFFECT may raise exceptions due to ill-formed file content
 (define (account-reader)
-  (A->account (read) (read)))
+  (define maybe-trans   (read))
+  (define last-check#   (read))
+  (define maybe-special (read))
+  (if (eof-object? maybe-special)
+      (A->account maybe-trans last-check#)
+      (A->account maybe-trans last-check# maybe-special)))
+
+#; {Any -> [Listof [List String Amount]]}
+(define (special m)
+  (if (eof-object? m) '[] m))
  
-#; {S-expression S-expression -> Account}
-(define (A->account x last-check#)
+#; {S-expression S-expression [Listof [List String Amount]] -> Account}
+(define (A->account x last-check# (special '[]))
   (parameterize ([read-decimal-as-inexact #false])
     (match x
       [(list (? string? name)
@@ -129,8 +138,15 @@
                 (exact->inexact balance)
                 (exact->inexact expected-balance)
                 (exact->inexact (- balance expected-balance))))
-       (account name recents  balance date history last-check#)]
-      [_ (error 'A->account "A expression expected, found ~a ~a" x last-check#)])))
+       (account name recents  balance date history last-check# special)]
+      [(list name recents balance date history)
+       (unless (string? name) (error 'A->account "name of account (string) expected, found ~s" name))
+       (unless (list*->dw recents) (error 'A->account "recent DWs expected, found ~s" recents))
+       (unless (amount? balance) (error 'A->account "balance expected, found ~s" balance))
+       (unless (my-date? date) (error 'A->account "my kind of data expected, found ~s" date))
+       (unless (list*->dw history)  (error 'A->account "historic DWs expected, found ~s" history))]
+      [_
+       (error 'A->account "A expression expected, found ~a ~a ~a" x last-check# special)])))
 
 #; {S-expression -> [Listof DW]}
 (define (list*->dw x)
@@ -149,7 +165,7 @@
      (error 'list->dw "DWList expected, found ~a" xy)]))
 
 (module+ test
-  (check-equal? (list->dw (list "a" '(2026 6 6) -100)) (dw "a" '(2026 6 6) -100) "coverage 1"))
+  (check-equal? (list->dw (list "a" '(2026 10 4) -100)) (dw "a" '(2026 10 4) -100) "coverage 1"))
 
 ;                                            
 ;                                            
@@ -171,7 +187,9 @@
 (define (account-writer x)
   (pretty-write (account->A x))
   (display (account-check-no x))
-  (display "; last check written"))
+  (display "; last check written")
+  (newline)
+  (pretty-write (account-special x)))
 
 #; {Account -> A}
 (define (account->A x)
@@ -180,6 +198,7 @@
         (amount->decimal-string (account-balance x))
         (account-balance-date x)
         (map dw->list (account-history x))))
+  
 
 #; {DW -> [List String Date String]}
 (define (dw->list dw)
@@ -200,15 +219,15 @@
 ;                                     
 ;                                     
 
-(module+ test ;; basic round-trip format tests 
+(module+ test ;; basic round-trip format tests
   (check-equal? (A->account A (account-check-no checking)) checking "new")
   (check-equal? (account->A (A->account A+100 0)) A+100 "plus")
   (check-equal? (account->A (A->account A+100-50 0)) A+100-50 "plus"))
 
 (module+ test ;; error cases
   (check-exn #px"A expression expected" (λ () (A->account "hell" 0)))
-  (check-exn #px"list" (λ () (A->account '("checking" "hey" 100 '(2026 6 6) '()) 0)))
-  (check-exn #px"DWList" (λ () (A->account '("checking" '("hey") 100 '(2026 6 6) '()) 0))))
+  (check-exn #px"list" (λ () (A->account '("checking" "hey" 100 '(2026 10 4) '()) 0)))
+  (check-exn #px"DWList" (λ () (A->account '("checking" '("hey") 100 '(2026 10 4) '()) 0))))
 
 (module+ test ;; basic round-trip I/O tests
   (define A+100-50-file

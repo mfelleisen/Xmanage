@@ -106,7 +106,7 @@
 #; {(Natural -> α)  String -> Void}
 ;; the α is Tim Griffin's continuation trick (argh)
 (define (new-account/2 exit-for-testing name #:last-check (last 0))
-  (define a (account name '() 0 (today) '() last))
+  (define a (account name '() 0 (today) '() last '[]))
   (define (effect)
     (define file-name (name->path name))
     (when (file-exists? file-name)
@@ -142,6 +142,8 @@
   (define action  (dw (align (string-join msg)) date delta))
   (set-account-recents! account (cons action history))
   (list account (write account)))
+
+(require SwDev/Debugging/spy)
 
 #; (Account Date Amount String -> Void)
 ;; effect: record a deposit
@@ -210,23 +212,35 @@
 (define (update account action-date)
   (define last-date (account-balance-date account))
   (when (next-month last-date action-date)
-    (define-values (balance history)
-      (for/fold ([balance (account-balance account)]
-                 [history (account-history account)])
-                ([r (account-recents account)])
-        (values (+ (dw-amount r) balance)
-                (cons r history))))
-    (set-account-recents! account '())
-    (set-account-history! account history)
-    (set-account-balance-date! account action-date)
-    (set-account-balance! account balance))
+    (monthly-deductions account action-date)
+    (move-forward account action-date))
   account)
+
+#; {Account Date -> Void}
+(define (monthly-deductions account action-date)
+  (for ([d (account-special account)])
+    (define nu-dw (dw (second d) action-date (first d)))
+    (set-account-recents! account (cons nu-dw (account-recents account)))))
+
+#;{Account Date -> Void}
+;; EFFECT: modify account by moving the charges since account-date to history 
+(define (move-forward account action-date)
+  (define-values (balance history)
+    (for/fold ([balance (account-balance account)]
+               [history (account-history account)])
+              ([r (account-recents account)])
+      (values (+ (dw-amount r) balance)
+              (cons r history))))
+  (set-account-recents! account '())
+  (set-account-history! account history)
+  (set-account-balance-date! account action-date)
+  (set-account-balance! account balance))
 
 (module+ test
   (let () ;; test update 
     (define Acopied  (struct-copy account A+100chk))
-    (define nextdate '(2026 8 20))
-    (define exp (account "checking" '() 100  nextdate (account-recents A+100chk) 0))
+    (define nextdate '(2026 11 4))
+    (define exp (account "checking" '() 100  nextdate (account-recents A+100chk) 0 '[]))
     (check-equal? (update Acopied nextdate) exp "update: check return")
     (check-equal? Acopied exp "update: check effect")))
 
@@ -320,7 +334,7 @@
      (delete-file (name->path TTT)))))
 ;; ---------------------------------------------------------------------------------------------------
 (module+ test ;; testing deposits, withdrawals, and check writing
-  (define 2day '(2026 6 6))
+  (define 2day '(2026 10 4))
 
   (check-equal? (run deposit (struct-copy account Achk) 2day "100" 100purpose) A+100chk)
   (check-equal? (run withdraw (struct-copy account A+100chk) 2day "50" 50purpose) A+100-50chk)
