@@ -7,8 +7,21 @@
        (flat-named-contract
         "current balance equals sum of transactions"
         (λ (a)
-          (= (transactions->balance (account-history a))
-             (account-balance a))))))
+          (define history (transactions->balance (account-history a)))
+          (define balance (account-balance a))
+          (cond
+            [(= history balance) #true]
+            [else
+             (eprintf "\n balance: ~a\n computed: ~a\n" balance history)
+             (where-is-the-inexact a)
+             #false])))))
+
+(define (where-is-the-inexact a)
+  (match-define (account name recents date balance history last monthly) a)
+  (for ([d  (append recents history)])
+    (match-define (dw note date amt) d)
+    (when (inexact? amt)
+      (eprintf "inexact line: ~s\n" d))))
 
 (provide
  (contract-out
@@ -116,11 +129,13 @@
   (define maybe-special (read))
   (if (eof-object? maybe-special)
       (A->account maybe-trans last-check#)
-      (A->account maybe-trans last-check# maybe-special)))
+      (A->account maybe-trans last-check# (special> maybe-special))))
 
 #; {Any -> [Listof [List String Amount]]}
-(define (special m)
-  (if (eof-object? m) '[] m))
+(define (special> m)
+  (match m
+    [(? list?) (map (λ (x) (list (first x) (amount> (second x)))) m)]
+    [_ '()]))
  
 #; {S-expression S-expression [Listof [List String Amount]] -> Account}
 (define (A->account x last-check# (special '[]))

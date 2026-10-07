@@ -219,7 +219,7 @@
 #; {Account Date -> Void}
 (define (monthly-deductions account action-date)
   (for ([d (account-special account)])
-    (define nu-dw (dw (second d) action-date (first d)))
+    (define nu-dw (dw (first d) action-date  (second d)))
     (set-account-recents! account (cons nu-dw (account-recents account)))))
 
 #;{Account Date -> Void}

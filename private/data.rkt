@@ -75,25 +75,40 @@
 ;                                                   
 
 (define (amount? x)
-  (rational? x))
+  (and (rational? x) (exact? x)))
 
 (define-match-expander amount>
   (λ (stx)
     (syntax-case stx ()
-      [(_ x) #'(app string->number/2 (? amount? x))])))
+      [(_ x) #'(app string->number/2 (? amount? x))]))
+  (λ (stx)
+    (syntax-case stx ()
+      [(_ expr) #'(cond
+                    [(number? expr) (inexact->exact expr)]
+                    [(string->number/2 expr)
+                     (λ (x)
+                       (if (amount? x)
+                     x
+                     (error 'amount> "amount expected, given ~s" x)))]
+                    [else (error 'amount> "amount expected, given ~s" expr)])])))
 
 (define-match-expander argv-amount>
   (λ (stx)
     (syntax-case stx ()
       [(_ x) #'(app string->number/2 (and (? amount?) (? (>/c 0) x)))])))
 
+(module+ test
+  (match "159.20"
+    [(argv-amount> x) (check-false (inexact? x) "argv match")]))
+
 (define (string->number/2 amount)
   (when (regexp-match #px"\\.\\d\\d\\d" (~a amount))
-      (eprintf "bad amount ~a\n" amount))
-  (string->number amount))
+    (eprintf "bad amount ~a\n" amount))
+  (parameterize ([read-decimal-as-inexact #false])
+    (string->number amount)))
 
 (module+ test
-  (check-equal? (string->number/2 "1.23") 1.23)
+  (check-equal? (string->number/2 "1.23") #e1.23)
   (check-match (with-output-to-string
                  (λ ()
                    (parameterize ([current-error-port (current-output-port)])
@@ -203,8 +218,8 @@
 (module+ test
   (check-equal? (checking0) (new-account "checking"))
 
-  (define dw0 (dw "test" (today) 10))
-  (check-equal? (transactions->running-balance (list dw0) 10. -) (list (list dw0 0.))
+  (define dw0 (dw "test" (today) #e10))
+  (check-equal? (transactions->running-balance (list dw0) #e10. -) (list (list dw0 0))
                 "running balance: an account w/o initial deposit")
   
   (check-equal? (transactions->balance (list dw0)) 10

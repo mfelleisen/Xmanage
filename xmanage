@@ -110,20 +110,28 @@ exec racket -tm "$0" -- ${1+"$@"}
 #; {(Natural -> α) [Account Date #:rest ANY -> ANY] String [Listof Any] -> Any}
 (define (account-specific-command exit-for-testing action name other)
   (define account #false)
-  (with-handlers ([exn? (general (λ () (when account [(write account)])) exit-for-testing)])
+  (with-handlers ([exn? (general
+                         (λ ()
+                           #;
+                           (pretty-print account [current-error-port])
+                           (when account [(write account)]))
+                         exit-for-testing)])
     (define file-name (does-account-already-exist exit-for-testing name))
     (set! account     (with-input-from-file file-name account-reader))
     (define 2day      (today))
     (set! account     (update account 2day))
     (define do        (second (apply action account 2day other)))
-    (with-handlers ([exn:fail:filesystem?
-		     (λ (xn) (eprintf "writing modified account failed\n ~a\n" (exn-message xn)) 1)])
+    (with-handlers ([exn:fail?
+		     (λ (xn)
+                       (eprintf "writing modified account failed\n ~a\n" (exn-message xn))
+                       (pretty-print account)
+                       1)])
       (do))))
 
 #; {(-> Account) (Natural -> α) -> Exn:Fail -> α}
 (define ((general restore! exit) xn)
   (printf "Exception caught: ~a\n" (exn-message xn))
-  (with-handlers ([exn:fail:filesystem? ;; I do not know how to test this failure 
+  (with-handlers ([exn:fail? ;; I do not know how to test this failure 
                    (λ (xn) (eprintf "restoring account failed: ~a\n" (exn-message xn)))])
     (restore!))
   (exit 1))
