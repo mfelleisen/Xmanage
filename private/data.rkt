@@ -77,6 +77,9 @@
 (define (amount? x)
   (and (rational? x) (exact? x)))
 
+(module+ test
+  (check-true (amount? 0)))
+
 (define-match-expander amount>
   (λ (stx)
     (syntax-case stx ()
@@ -88,18 +91,20 @@
                     [(string->number/2 expr)
                      (λ (x)
                        (if (amount? x)
-                     x
-                     (error 'amount> "amount expected, given ~s" x)))]
+                           x
+                           (error 'amount> "amount expected, given ~s" x)))]
                     [else (error 'amount> "amount expected, given ~s" expr)])])))
 
 (define-match-expander argv-amount>
   (λ (stx)
     (syntax-case stx ()
-      [(_ x) #'(app string->number/2 (and (? amount?) (? (>/c 0) x)))])))
+      [(_ x) #'(app string->number/2 (and (? amount?) (? (lambda (x) (>= x 0)) x)))])))
 
 (module+ test
   (match "159.20"
-    [(argv-amount> x) (check-false (inexact? x) "argv match")]))
+    [(argv-amount> x) (check-false (inexact? x) "argv match")])
+  (match "0."
+    [(argv-amount> x) (check-true (= x 0))]))
 
 (define (string->number/2 amount)
   (when (regexp-match #px"\\.\\d\\d\\d" (~a amount))
@@ -143,7 +148,7 @@
   
 (struct account (name recents balance balance-date history check-no special) #:transparent #:mutable)
 (struct dw (comment date amount) #:transparent #:mutable)
-#; {type Account = (account String [Listof T] Rational Date [Listof T] Natural)}
+#; {type Account = (account String [Listof T] Rational Date [Listof T] Natural [Listof [List String Amount]])}
 #; {type DW      = (dw String Date PositiveRational)}
 
 (module+ examples
