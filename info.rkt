@@ -6,3 +6,5 @@
 (define version "1.1")
 (define pkg-authors '(matthias))
 (define license '(Apache-2.0 OR MIT))
+
+(define test-omit-paths '("commands.rkt" "make-check2.rkt"))
